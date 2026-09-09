@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import io
 import json
+import math
 import os
 import re
 import sqlite3
@@ -46,6 +47,9 @@ def query_validation(payload):
         raise HTTPException(422, 'SQL is required and limited to 30 KB')
     if payload.get('connector') not in ('sqlite', 'bigquery'):
         raise HTTPException(422, 'Choose sqlite or bigquery')
+    if payload['connector'] == 'bigquery':
+        from .data_products import query_contract
+        query_contract(payload)
     dialect = payload['connector']
     try:
         statements = sqlglot.parse(sql, read=dialect)
@@ -85,7 +89,7 @@ def bind_parameters(payload, values, user):
         value = values[name]
         valid = ((kind == 'string' and isinstance(value, str) and len(value) <= 4000)
                  or (kind == 'integer' and type(value) is int)
-                 or (kind == 'number' and type(value) in (int, float))
+                 or (kind == 'number' and type(value) in (int, float) and math.isfinite(value))
                  or (kind == 'boolean' and type(value) is bool))
         if kind == 'date':
             try:
@@ -105,6 +109,9 @@ def run_query(db, reference, values, user):
     query_validation(p)  # Defense against policy changes since approval.
     bound = bind_parameters(p, values, user)
     if p['connector'] == 'bigquery':
+        from .data_products import enforce
+        enforce(db, p)
+        reserve_query_budget(user['id'])
         return run_bigquery(p, bound, user)
     path = DATA / 'warehouse.sqlite'
     if not path.exists():
@@ -136,12 +143,26 @@ def run_query(db, reference, values, user):
     finally:
         conn.close()
 
-def run_bigquery(p, bound, user):
+def reserve_query_budget(user_id):
+    # Separate transaction: failed/timed-out warehouse calls still consume a slot.
+    from .db import connect
+    window = int(time.time() // 60) * 60
+    limit = max(1, min(1000, int(os.getenv('DC_BQ_QUERIES_PER_MINUTE', '20'))))
+    with connect() as db:
+        db.execute('DELETE FROM query_windows WHERE window_start<?', (window - 86400,))
+        cursor = db.execute('INSERT INTO query_windows VALUES(?,?,1) ON CONFLICT(user_id,window_start) DO UPDATE SET requests=query_windows.requests+1 WHERE query_windows.requests<?', (user_id, window, limit))
+        if cursor.rowcount != 1:
+            raise HTTPException(429, 'Per-user BigQuery request budget exceeded; retry next minute')
+
+
+def bigquery_client(user):
     # No shared privileged fallback: each caller must have an operator-provided principal mapping.
     mapping = json.loads(os.getenv('DC_BQ_PRINCIPALS', '{}'))
     principal = mapping.get(user['id'])
-    if not principal:
+    if not isinstance(principal, str) or not re.fullmatch(r'[a-zA-Z0-9._-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com', principal):
         raise HTTPException(503, 'No BigQuery execution principal is bound for this caller')
+    if list(mapping.values()).count(principal) != 1:
+        raise HTTPException(503, 'Execution principal must not be shared across caller mappings')
     try:
         import google.auth
         from google.auth import impersonated_credentials
@@ -152,19 +173,36 @@ def run_bigquery(p, bound, user):
     credentials = impersonated_credentials.Credentials(source_credentials=source, target_principal=principal,
                      target_scopes=['https://www.googleapis.com/auth/bigquery'], lifetime=600)
     client = bigquery.Client(project=os.environ['DC_BQ_PROJECT'], credentials=credentials)
+    return client, bigquery
+
+
+def run_bigquery(p, bound, user):
+    client, bigquery = bigquery_client(user)
     types = {'string':'STRING','integer':'INT64','number':'FLOAT64','boolean':'BOOL','date':'DATE'}
     params = [bigquery.ScalarQueryParameter(k, types[t], bound[k]) for k, t in p['parameters'].items()]
     if '@_user_id' in p['sql']:
         params.append(bigquery.ScalarQueryParameter('_user_id', 'STRING', user['id']))
-    cfg = bigquery.QueryJobConfig(query_parameters=params, maximum_bytes_billed=int(os.getenv('DC_BQ_MAX_BYTES', '100000000')),
+    budget = min(p['data_contract']['max_bytes_billed'], int(os.getenv('DC_BQ_MAX_BYTES', '100000000')))
+    cap = p['data_contract']['max_rows']
+    cfg = bigquery.QueryJobConfig(query_parameters=params, maximum_bytes_billed=budget, use_query_cache=False,
                                  use_legacy_sql=False, labels={'application':'dreamcatcher'})
-    job = client.query(p['sql'], job_config=cfg, location=os.getenv('DC_BQ_LOCATION', 'US'))
+    job = None
     try:
-        rows = [dict(r) for r in job.result(timeout=30, max_results=501)]
+        dry = bigquery.QueryJobConfig(query_parameters=params, dry_run=True, use_query_cache=False, use_legacy_sql=False)
+        estimate = client.query(p['sql'], job_config=dry, location=os.getenv('DC_BQ_LOCATION', 'US'))
+        if estimate.total_bytes_processed is None or estimate.total_bytes_processed > budget:
+            raise HTTPException(409, 'Query exceeds the governed cost budget or cannot be estimated')
+        if [c.name for c in estimate.schema or []] != p['data_contract']['output_columns']:
+            raise HTTPException(409, 'Warehouse output schema differs from approved query contract')
+        job = client.query(p['sql'], job_config=cfg, location=os.getenv('DC_BQ_LOCATION', 'US'))
+        rows = [dict(r) for r in job.result(timeout=30, max_results=cap + 1)]
+    except HTTPException:
+        raise
     except Exception:
-        job.cancel()
+        if job:
+            job.cancel()
         raise HTTPException(502, 'BigQuery execution failed or timed out; check server-side job logs')
-    return {'rows':rows[:500], 'truncated':len(rows)>500, 'job_id':job.job_id}
+    return {'rows':rows[:cap], 'truncated':len(rows)>cap, 'job_id':job.job_id, 'bytes_processed': job.total_bytes_processed}
 
 def lock_inventory(lock):
     if not isinstance(lock,dict) or lock.get('lockfileVersion') not in (2, 3) or not isinstance(lock.get('packages'), dict):

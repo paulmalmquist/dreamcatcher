@@ -1,5 +1,10 @@
 # Release approval and portable skills
 
+For hosted container releases, start with docs/V2-PLATFORM.md: source ZIP intake,
+leased trusted build/deploy workers, certified data contracts and the hosted Release
+panel. The external-link HMAC flow below is retained for compatibility; it is not
+the v2 container worker protocol.
+
 ## App release
 
 Register an HTTPS app URL, then use the Release tab to submit:
@@ -38,3 +43,8 @@ The sample export is the canonical working example. A manifest specifies id, exa
 Imports reject traversal, symlinks, encrypted or duplicate files, known secret file types, common credential patterns, excessive file counts/sizes and unsupported runtime fields. This is not a complete DLP solution: review content before export. Destination query references must exist and be approved; skill approval is always local and independent. Logical connection names are metadata; destination query adapters supply actual connection configuration.
 
 Version conflicts return 409. Change version for changed content. Credentials, tokens, source workspace grants and approval records are not part of portable packages.
+# Hosted container releases (v2)
+
+Use docs/V2-PLATFORM.md for source ZIP intake, leased trusted build/deploy workers,
+certified data contracts and the hosted Release panel. The external-link HMAC flow
+below is retained for compatibility; it is not the v2 container worker protocol.

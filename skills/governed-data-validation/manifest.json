@@ -1,0 +1,1 @@
+{"schema":"dreamcatcher-instruction-skill/v1","name":"governed-data-validation","version":"1.0.0","runtime":"instructions-only","logical_connections":["certified-catalog","governed-query-gateway"],"inherits_approval":false}

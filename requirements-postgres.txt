@@ -1,0 +1,3 @@
+# Optional work connector. Resolve an exact, hash-locked set in the company build.
+# Not part of the tested SQLite-only local demo dependencies.
+psycopg[binary]>=3.2,<4

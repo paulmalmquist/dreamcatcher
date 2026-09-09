@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "Collection": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9-]{1,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "scope": {
+          "const": "user",
+          "default": "user",
+          "title": "Scope",
+          "type": "string"
+        },
+        "max_bytes": {
+          "default": 16384,
+          "maximum": 65536,
+          "minimum": 64,
+          "title": "Max Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Collection",
+      "type": "object"
+    },
+    "Runtime": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "const": "dc-http/v1",
+          "default": "dc-http/v1",
+          "title": "Contract",
+          "type": "string"
+        },
+        "port": {
+          "default": 8080,
+          "maximum": 65535,
+          "minimum": 1024,
+          "title": "Port",
+          "type": "integer"
+        },
+        "web": {
+          "default": "spa",
+          "enum": [
+            "spa",
+            "http"
+          ],
+          "title": "Web",
+          "type": "string"
+        },
+        "entrypoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "dist/index.html",
+          "title": "Entrypoint"
+        },
+        "health_path": {
+          "const": "/healthz",
+          "default": "/healthz",
+          "title": "Health Path",
+          "type": "string"
+        },
+        "readiness_path": {
+          "const": "/readyz",
+          "default": "/readyz",
+          "title": "Readiness Path",
+          "type": "string"
+        },
+        "cpu": {
+          "default": 1,
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Cpu",
+          "type": "integer"
+        },
+        "memory_mb": {
+          "default": 512,
+          "maximum": 4096,
+          "minimum": 128,
+          "title": "Memory Mb",
+          "type": "integer"
+        },
+        "max_instances": {
+          "default": 2,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Instances",
+          "type": "integer"
+        }
+      },
+      "title": "Runtime",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "dreamcatcher/v1",
+      "default": "dreamcatcher/v1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Version",
+      "type": "string"
+    },
+    "classification": {
+      "default": "internal",
+      "enum": [
+        "internal",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "runtime": {
+      "$ref": "#/$defs/Runtime"
+    },
+    "queries": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Queries",
+      "type": "array"
+    },
+    "skills": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Skills",
+      "type": "array"
+    },
+    "collections": {
+      "items": {
+        "$ref": "#/$defs/Collection"
+      },
+      "maxItems": 20,
+      "title": "Collections",
+      "type": "array"
+    },
+    "egress": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Egress",
+      "type": "array"
+    },
+    "editable_paths": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Editable Paths",
+      "type": "array"
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

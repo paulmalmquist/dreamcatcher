@@ -1,0 +1,11 @@
+{
+  "apiVersion": "dreamcatcher/v1",
+  "version": "1.0.0",
+  "classification": "internal",
+  "runtime": {"web": "spa", "entrypoint": "dist/index.html", "port": 8080},
+  "queries": ["bq-build-readiness@1.0.0"],
+  "skills": [],
+  "collections": [{"name": "preferences", "scope": "user", "max_bytes": 16384}],
+  "egress": [],
+  "editable_paths": ["src/"]
+}

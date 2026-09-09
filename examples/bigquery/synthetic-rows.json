@@ -1,0 +1,56 @@
+{
+  "synthetic": true,
+  "entitlements": {
+    "builder": [
+      "program-a",
+      "program-b"
+    ],
+    "viewer": [
+      "program-a"
+    ]
+  },
+  "datasets": {
+    "dc-synthetic-demo.analytics_governed.assembly_readiness_v1": [
+      {
+        "assembly_id": "DEMO-A101",
+        "program_id": "program-a",
+        "system_name": "Structures",
+        "readiness_pct": 84
+      },
+      {
+        "assembly_id": "DEMO-B201",
+        "program_id": "program-b",
+        "system_name": "Avionics",
+        "readiness_pct": 72
+      }
+    ],
+    "dc-synthetic-demo.analytics_governed.supplier_delivery_v1": [
+      {
+        "po_line_id": "DEMO-PO101",
+        "program_id": "program-a",
+        "supplier_alias": "Supplier Alpha",
+        "days_late": 3
+      },
+      {
+        "po_line_id": "DEMO-PO201",
+        "program_id": "program-b",
+        "supplier_alias": "Supplier Beta",
+        "days_late": 0
+      }
+    ],
+    "dc-synthetic-demo.analytics_governed.test_telemetry_v1": [
+      {
+        "test_run_id": "DEMO-T101",
+        "program_id": "program-a",
+        "test_family": "Avionics bench",
+        "pass_rate": 0.98
+      },
+      {
+        "test_run_id": "DEMO-T201",
+        "program_id": "program-b",
+        "test_family": "Propulsion bench",
+        "pass_rate": 0.94
+      }
+    ]
+  }
+}

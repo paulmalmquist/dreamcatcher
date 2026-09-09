@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dreamcatcher-sdk"
+version = "2.0.0"
+requires-python = ">=3.11"
+description = "Request-scoped client for the Dreamcatcher governed app gateway"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]

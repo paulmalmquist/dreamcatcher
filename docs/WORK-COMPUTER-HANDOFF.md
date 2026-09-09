@@ -1,5 +1,11 @@
 # Work-computer handoff
 
+The v2 entrypoint is `CLAUDE.md`. Its machine-readable work queue is
+`integrations/CONNECTIONS.json`; search `WORK-CONNECT:` for the corresponding code.
+Read `docs/V2-PLATFORM.md` for the hosted-app/SDK/database contracts. Retain all
+synthetic fixtures and negative tests while replacing connections at work. Do not
+activate the unconnected worker adapter or manufacture passing evidence.
+
 This transfer is one-way. The work environment becomes authoritative after import. Do not sync company code, data, secrets, internal URLs, or modified skill contents back to a personal repository. This package contains a standalone beta and synthetic data, not a copy of Paul OS or company infrastructure.
 
 ## 1. Establish a local baseline

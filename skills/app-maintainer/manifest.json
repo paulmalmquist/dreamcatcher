@@ -1,0 +1,1 @@
+{"schema":"dreamcatcher-instruction-skill/v1","name":"app-maintainer","version":"1.0.0","runtime":"instructions-only","logical_connections":["app-context","approved-model"],"inherits_approval":false}

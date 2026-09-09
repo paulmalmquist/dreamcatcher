@@ -34,6 +34,13 @@ def inspect(root=ROOT):
         record('HTTPS origin',(values.get('DC_ORIGIN') or '').startswith('https://'),'Configure the actual HTTPS origin and callback')
         for name in ('DC_OIDC_ISSUER','DC_OIDC_CLIENT_ID','DC_OIDC_CLIENT_SECRET','DC_ALLOWED_HOSTS','DC_APP_HOSTS'):
             record(name,bool(values.get(name)),'Set an explicit corporate value; validity still requires integration testing')
+        for name in ('DC_DATABASE_URL','DC_STATE_DATABASE_URL','DC_BQ_PROJECT','DC_IMAGE_REGISTRIES','DC_APP_RUNTIME_SUFFIX'):
+            record(name,bool(values.get(name)),'Replace WORK-CONNECT seam with a real approved company value')
+        record('Separate state database',bool(values.get('DC_STATE_DATABASE_URL')) and values.get('DC_STATE_DATABASE_URL')!=values.get('DC_DATABASE_URL'),'Different migration/runtime roles and FORCE RLS must also be verified live')
+        record('Migration separation',values.get('DC_AUTO_MIGRATE','false')=='false','Run scripts/migrate.py with a migration-only role, not at runtime')
+        for kind in ('BUILD','DEPLOY','AGENT','DATA'):
+            record('Worker credential: '+kind,len(values.get('DC_WORKER_'+kind+'_KEY',''))>=32,'Separate secret per worker; a configured credential is not a healthy worker')
+        record('PostgreSQL driver',importlib.util.find_spec('psycopg') is not None,'Resolve requirements-postgres.txt with the company dependency process')
     return {'mode':'production' if prod else 'local','network_checks_performed':False,'checks':checks,
             'limitations':['Does not validate IdP, warehouse IAM, deployed artifacts, or production readiness.','No database is created or modified.']}
 

@@ -1,5 +1,26 @@
 # Security and deployment checklist
 
+## V2 additions
+
+Read docs/V2-PLATFORM.md and integrations/CONNECTIONS.json for the current hosted-app
+contracts and unconnected work adapters. Hosted apps use separate discover/use/edit/
+deploy/share/review capabilities and explicit review permission for restricted apps.
+SDK runtime tokens for hosted apps also bind the active release; developer tokens
+cannot approve, deploy or change permissions. Byte/row limits, dry-run output checks,
+per-user BigQuery request budgets, expiring certified-source observations and app/user
+state isolation are implemented. Worker source/report APIs are separately authenticated
+and lease-bound. Upload source is never executed inside the registry.
+
+Production requires PostgreSQL control metadata and a separately permissioned state
+database for state features. The provided RLS migration and driver adapter require
+real integration tests. Build/scanner, catalog, private-edge/hosting, model and audit
+sink adapters are intentionally unconnected; mock worker results are test fixtures,
+not production attestations. The registry's dependency inventory gate cannot prove a
+worker's inventory is complete without a trusted build/scan implementation.
+
+The sections below also describe the retained URL-first beta. Its HMAC signer is NOT
+the hosted worker credential or a replacement for an isolated build pipeline.
+
 ## Implemented boundaries
 
 Opaque sessions are hashed at rest; browser sessions use HttpOnly/SameSite cookies and CSRF checks. SDK tokens expire after one hour, are bound to an app, and only allow identity and governed execution endpoints. Disabling an account or changing its role/groups revokes its sessions. Production disables password login, requires OIDC, HTTPS origin, demo off, and a persistent session secret.
@@ -29,4 +50,4 @@ python scripts/provision.py --issuer https://YOUR_ISSUER --subject PROVIDER_SUBJ
 
 ## Known scope limits
 
-Single workspace; no tenant isolation, arbitrary Python app-package enforcement, public anonymous sharing, user invitations by email, automatic ownership transfer, secret manager UI, LLM skill runtime, skill evaluation runner, remote build worker, deployment attestations verified against live hosting, or native dbt/Power BI catalog ingestion. Docker and Windows commands are supplied but not executed in this environment. The browser frontend was compiled/typechecked, not automatically end-to-end browser tested in this delivery.
+Single organizational workspace; no cross-organization tenancy, public anonymous sharing, email invitations, automatic ownership transfer or secret-manager UI. App/user state isolation exists, but PostgreSQL RLS still requires live verification. Complete package enforcement and LLM execution require the unconnected trusted worker adapters; no remote build, real deployment or native dbt/Power BI catalog ingestion was exercised here. Docker and Windows commands are supplied but not executed. The frontend was compiled/typechecked, not end-to-end browser tested in this delivery.

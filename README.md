@@ -1,6 +1,6 @@
 # Dreamcatcher
 
-Public source repository: https://github.com/paulmalmquist/dreamcatcher
+Source repository: https://github.com/paulmalmquist/dreamcatcher (use your GitHub authentication if private).
 
 ```sh
 git clone https://github.com/paulmalmquist/dreamcatcher.git
@@ -9,7 +9,33 @@ cd dreamcatcher
 
 A URL-first internal app gallery with an original animated Three.js space design, persistent sharing, governed queries, exact-package policies, portable skills, and a TypeScript SDK.
 
-This is a functional single-node beta foundation, not a claim of production certification. The bundled apps and warehouse contain synthetic demonstration data. No company systems, secrets, or attached personal documents are included.
+This is a functional beta control plane, not a claim of production certification. The bundled apps and warehouse contain synthetic demonstration data. No company systems, secrets, or attached personal documents are included.
+
+## New: container and governed-dashboard workflow
+
+Start with [CLAUDE.md](CLAUDE.md) when transferring to your work computer. It points
+your work Claude at [named connection seams](integrations/CONNECTIONS.json), actual
+implementation files, and required live acceptance tests. Nothing guesses company
+project IDs, IAM grants, dataset certification or credentials.
+
+- Hosted app registration and safe source ZIP intake; immutable submissions,
+  independent review, digest-bound build/deployment reports and rollback by promoting
+  a prior still-approved submission. External URL registration remains available.
+- Separate discover/use/edit/deploy/share/review capabilities, restricted-app review,
+  suspension, current-policy rechecks and app/release-bound runtime tokens.
+- Certified BigQuery source revisions, schema/grain/freshness/lineage/security evidence,
+  query output contracts, dry runs, byte/row budgets and per-user request limits.
+- A stable per-app maintainer context and UI-only proposal/candidate workflow.
+  Portable maintainer and governed-data-validation skills are in `skills/`.
+- SDK 2: TypeScript client, Python client, `dc` CLI, JSON schema and a Node dashboard
+  container template. Small per-user state uses a separate database and optimistic writes.
+- Synthetic HTTP uploads for build readiness, supplier delivery and test telemetry,
+  with negative tests. See [the v2 guide](docs/V2-PLATFORM.md).
+
+**Not connected here:** corporate IdP/BigQuery, catalog attestation, sandbox/scanner,
+private hosting/edge, model worker, PostgreSQL and audit sink. The worker protocol
+and adapter seams exist; a queued job is not a real build/deployment. Unconfigured
+paths fail closed. See [verification](docs/VERIFICATION.md).
 
 ## Run on your computer
 
@@ -96,7 +122,7 @@ npm run test:sdk
 
 ## Push to your GitHub workspace
 
-For the one-way transfer into Paul OS at work, start with [the work-computer handoff](docs/WORK-COMPUTER-HANDOFF.md) and paste [WORK-AGENT-PROMPT.md](WORK-AGENT-PROMPT.md) into your local coding agent. `python scripts/doctor.py` provides a read-only installation preflight; `--json` produces structured results without printing secret values.
+For the one-way transfer into Paul OS at work, start with [CLAUDE.md](CLAUDE.md), [the work-computer handoff](docs/WORK-COMPUTER-HANDOFF.md), and [WORK-AGENT-PROMPT.md](WORK-AGENT-PROMPT.md). `python scripts/doctor.py` provides a read-only installation preflight; `--json` produces structured results without printing secret values.
 
 Create an **empty** repository under your own account or organization, then:
 
@@ -109,6 +135,6 @@ git remote add origin https://github.com/YOUR_WORKSPACE/dreamcatcher.git
 git push -u origin main
 ```
 
-For a separate private work repository, use your organization's approved creation and transfer process. Review staged files first; `.env`, databases, tokens, dependencies and build output must stay excluded. Never push company modifications or data back to this public prototype.
+For a separate private work repository, use your organization's approved creation and transfer process. Review staged files first; `.env`, databases, tokens, dependencies and build output must stay excluded. Never push company modifications or data back to this personal prototype.
 
 Before corporate rollout, read [architecture](docs/ARCHITECTURE.md), [security and deployment checklist](docs/SECURITY.md), and [release workflow](docs/RELEASES.md). Appsmith informed the capability inventory, not this UI or a forked Appsmith codebase.

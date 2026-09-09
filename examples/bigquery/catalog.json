@@ -1,0 +1,134 @@
+[
+  {
+    "source": "dc-synthetic-demo.analytics_governed.assembly_readiness_v1",
+    "revision": 1,
+    "owner": "SYNTHETIC data product steward",
+    "description": "Synthetic Build Readiness view; replace only in the work repository.",
+    "classification": "internal",
+    "grain": [
+      "assembly_id"
+    ],
+    "columns": [
+      {
+        "name": "assembly_id",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "program_id",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "system_name",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "readiness_pct",
+        "type": "FLOAT",
+        "sensitive": false
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "sensitive": false
+      }
+    ],
+    "allowed_groups": [
+      "Manufacturing"
+    ],
+    "max_staleness_seconds": 86400,
+    "max_bytes_billed": 100000000,
+    "row_security": "identity-authorized-view",
+    "enabled": true
+  },
+  {
+    "source": "dc-synthetic-demo.analytics_governed.supplier_delivery_v1",
+    "revision": 1,
+    "owner": "SYNTHETIC data product steward",
+    "description": "Synthetic Supplier Delivery view; replace only in the work repository.",
+    "classification": "internal",
+    "grain": [
+      "po_line_id"
+    ],
+    "columns": [
+      {
+        "name": "po_line_id",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "program_id",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "supplier_alias",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "days_late",
+        "type": "INTEGER",
+        "sensitive": false
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "sensitive": false
+      }
+    ],
+    "allowed_groups": [
+      "Supply chain"
+    ],
+    "max_staleness_seconds": 86400,
+    "max_bytes_billed": 100000000,
+    "row_security": "identity-authorized-view",
+    "enabled": true
+  },
+  {
+    "source": "dc-synthetic-demo.analytics_governed.test_telemetry_v1",
+    "revision": 1,
+    "owner": "SYNTHETIC data product steward",
+    "description": "Synthetic Test Telemetry view; replace only in the work repository.",
+    "classification": "internal",
+    "grain": [
+      "test_run_id"
+    ],
+    "columns": [
+      {
+        "name": "test_run_id",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "program_id",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "test_family",
+        "type": "STRING",
+        "sensitive": false
+      },
+      {
+        "name": "pass_rate",
+        "type": "FLOAT",
+        "sensitive": false
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "sensitive": false
+      }
+    ],
+    "allowed_groups": [
+      "Test & launch"
+    ],
+    "max_staleness_seconds": 86400,
+    "max_bytes_billed": 100000000,
+    "row_security": "identity-authorized-view",
+    "enabled": true
+  }
+]

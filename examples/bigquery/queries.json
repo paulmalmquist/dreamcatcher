@@ -1,0 +1,98 @@
+[
+  {
+    "id": "bq-build-readiness",
+    "version": "1.0.0",
+    "name": "Build Readiness",
+    "description": "SYNTHETIC downstream dashboard. No flight or operational decisions.",
+    "connector": "bigquery",
+    "sources": [
+      "dc-synthetic-demo.analytics_governed.assembly_readiness_v1"
+    ],
+    "sql": "SELECT assembly_id, program_id, system_name, readiness_pct, updated_at FROM `dc-synthetic-demo.analytics_governed.assembly_readiness_v1` WHERE program_id = @program_id ORDER BY assembly_id",
+    "grain": "One row per assembly_id",
+    "parameters": {
+      "program_id": "string"
+    },
+    "allowed_groups": [
+      "Manufacturing"
+    ],
+    "data_contract": {
+      "products": {
+        "dc-synthetic-demo.analytics_governed.assembly_readiness_v1": 1
+      },
+      "output_columns": [
+        "assembly_id",
+        "program_id",
+        "system_name",
+        "readiness_pct",
+        "updated_at"
+      ],
+      "max_bytes_billed": 100000000,
+      "max_rows": 100
+    }
+  },
+  {
+    "id": "bq-supplier-delivery",
+    "version": "1.0.0",
+    "name": "Supplier Delivery",
+    "description": "SYNTHETIC downstream dashboard. No flight or operational decisions.",
+    "connector": "bigquery",
+    "sources": [
+      "dc-synthetic-demo.analytics_governed.supplier_delivery_v1"
+    ],
+    "sql": "SELECT po_line_id, program_id, supplier_alias, days_late, updated_at FROM `dc-synthetic-demo.analytics_governed.supplier_delivery_v1` WHERE program_id = @program_id ORDER BY po_line_id",
+    "grain": "One row per po_line_id",
+    "parameters": {
+      "program_id": "string"
+    },
+    "allowed_groups": [
+      "Supply chain"
+    ],
+    "data_contract": {
+      "products": {
+        "dc-synthetic-demo.analytics_governed.supplier_delivery_v1": 1
+      },
+      "output_columns": [
+        "po_line_id",
+        "program_id",
+        "supplier_alias",
+        "days_late",
+        "updated_at"
+      ],
+      "max_bytes_billed": 100000000,
+      "max_rows": 100
+    }
+  },
+  {
+    "id": "bq-test-telemetry",
+    "version": "1.0.0",
+    "name": "Test Telemetry",
+    "description": "SYNTHETIC downstream dashboard. No flight or operational decisions.",
+    "connector": "bigquery",
+    "sources": [
+      "dc-synthetic-demo.analytics_governed.test_telemetry_v1"
+    ],
+    "sql": "SELECT test_run_id, program_id, test_family, pass_rate, updated_at FROM `dc-synthetic-demo.analytics_governed.test_telemetry_v1` WHERE program_id = @program_id ORDER BY test_run_id",
+    "grain": "One row per test_run_id",
+    "parameters": {
+      "program_id": "string"
+    },
+    "allowed_groups": [
+      "Test & launch"
+    ],
+    "data_contract": {
+      "products": {
+        "dc-synthetic-demo.analytics_governed.test_telemetry_v1": 1
+      },
+      "output_columns": [
+        "test_run_id",
+        "program_id",
+        "test_family",
+        "pass_rate",
+        "updated_at"
+      ],
+      "max_bytes_billed": 100000000,
+      "max_rows": 100
+    }
+  }
+]

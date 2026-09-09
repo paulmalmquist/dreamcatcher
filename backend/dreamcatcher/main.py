@@ -72,13 +72,20 @@ async def lifespan(app):
         raise RuntimeError('Production requires OIDC, HTTPS, and DC_DEMO=false')
     if auth.PRODUCTION and len(os.getenv('DC_SESSION_SECRET','')) < 32:
         raise RuntimeError('Set a strong persistent DC_SESSION_SECRET')
-    migrate()
+    if auth.PRODUCTION and not os.getenv('DC_DATABASE_URL'):
+        raise RuntimeError('Production requires a managed PostgreSQL control database')
+    if os.getenv('DC_AUTO_MIGRATE', 'false' if auth.PRODUCTION else 'true') == 'true':
+        migrate()
     if auth.DEMO:
         from .seed import seed
         seed()
     yield
 
-app = FastAPI(title='Dreamcatcher API',version='1.0.0',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url='/api/openapi.json')
+app = FastAPI(title='Dreamcatcher API',version='2.0.0',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url='/api/openapi.json')
+from .platform_api import router as platform_router
+from .workers import router as worker_router
+app.include_router(platform_router)
+app.include_router(worker_router)
 app.add_middleware(SessionMiddleware,secret_key=os.getenv('DC_SESSION_SECRET') or secrets.token_hex(32),
                    session_cookie='dc_oidc_state',https_only=auth.PRODUCTION,same_site='lax',max_age=600)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=[x.strip() for x in os.getenv('DC_ALLOWED_HOSTS','localhost,127.0.0.1,testserver').split(',')])
@@ -88,6 +95,8 @@ async def boundaries(request, call_next):
     if request.method in ('POST','PUT','PATCH'):
         length = request.headers.get('content-length')
         limit = 6 * 1024 * 1024 if request.url.path == '/api/skills/import' else 2 * 1024 * 1024
+        if request.url.path.startswith('/api/v2/apps/') and request.url.path.endswith('/submissions'):
+            limit = 9 * 1024 * 1024
         if length is None:
             return Response('Content-Length is required',status_code=411)
         try:
@@ -97,6 +106,15 @@ async def boundaries(request, call_next):
             return Response('Invalid Content-Length',status_code=400)
         if request.headers.get('transfer-encoding'):
             return Response('Chunked writes are not supported',status_code=400)
+        chunks, measured = [], 0
+        async for chunk in request.stream():
+            measured += len(chunk)
+            if measured > limit:
+                return Response('Request exceeds size limit', status_code=413)
+            chunks.append(chunk)
+        if measured != int(length):
+            return Response('Content-Length does not match body', status_code=400)
+        request._body = b''.join(chunks)
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'same-origin'
@@ -140,7 +158,7 @@ def login(body: Login, request: Request, response: Response):
             success = True
         else:
             attempts = attempt['attempts']+1 if attempt and attempt['reset_at']>time.time() else 1
-            db.execute('INSERT OR REPLACE INTO login_attempts VALUES(?,?,?)',(address,attempts,time.time()+300))
+            db.execute('INSERT INTO login_attempts VALUES(?,?,?) ON CONFLICT(address) DO UPDATE SET attempts=excluded.attempts,reset_at=excluded.reset_at',(address,attempts,time.time()+300))
     if not success:
         raise HTTPException(401,'Invalid credentials')
     set_cookie(response,token)
@@ -197,6 +215,15 @@ async def oidc_callback(request: Request):
 
 def app_view(db,row,user):
     p=json.loads(row['payload'])
+    hosted = db.execute('SELECT * FROM app_platform WHERE app_id=?', (row['id'],)).fetchone()
+    if hosted:
+        sub = db.execute('SELECT * FROM submissions WHERE id=?', (hosted['active_submission'],)).fetchone()
+        manifest = json.loads(sub['manifest']) if sub else {'queries': [], 'skills': []}
+        return p | {'id': row['id'], 'ownerId': row['owner'], 'mine': row['owner'] == user['id'], 'hosted': True,
+            'revision': hosted['revision'], 'saved': bool(db.execute('SELECT 1 FROM favorites WHERE user_id=? AND app_id=?', (user['id'],row['id'])).fetchone()),
+            'status': 'Suspended' if not hosted['enabled'] else 'Published' if sub and sub['status'] == 'approved' else 'Private draft',
+            'version': sub['version'] if sub else '0.1.0', 'grants': [], 'audience': 'Explicit capabilities',
+            'queryRefs': manifest['queries'], 'skillRefs': manifest['skills'], 'queries': len(manifest['queries']), 'skills': len(manifest['skills'])}
     grants=[dict(r) for r in db.execute('SELECT subject,permission FROM grants WHERE app_id=?',(row['id'],))]
     published = row['published_version']
     release=db.execute('SELECT * FROM releases WHERE app_id=? AND version=?',(row['id'],published)).fetchone() if published else None
@@ -214,7 +241,13 @@ def state(user: User):
         apps=[]
         for row in db.execute('SELECT * FROM apps ORDER BY created DESC').fetchall():
             try:
-                if user['role'] not in ('admin','reviewer'):
+                if db.execute('SELECT 1 FROM app_platform WHERE app_id=?', (row['id'],)).fetchone():
+                    from .hosting import app_permission
+                    try:
+                        app_permission(db, user, row['id'], 'discover')
+                    except HTTPException:
+                        app_permission(db, user, row['id'], 'review')
+                elif user['role'] not in ('admin','reviewer'):
                     auth.app_permission(db,user,row['id'])
                 apps.append(app_view(db,row,user))
             except HTTPException:
@@ -349,7 +382,7 @@ def unpublish(app_id: str,user: User):
 @app.post('/api/queries',status_code=201)
 def create_query(body: dict,user: User):
     auth.require_role(user,'builder','admin')
-    allowed={'id','version','name','description','sql','connector','sources','grain','parameters','allowed_groups'}
+    allowed={'id','version','name','description','sql','connector','sources','grain','parameters','allowed_groups','data_contract'}
     if set(body)-allowed:
         raise HTTPException(422,'Unsupported query fields')
     result=policy.query_validation(body)
@@ -371,6 +404,8 @@ def review_asset(kind: Literal['query','skill'],identifier: str,version: str,bod
                 raise HTTPException(403,'A different reviewer must approve this asset')
             if kind=='query':
                 policy.query_validation(row['payload'])
+                from .data_products import enforce
+                enforce(db, row['payload'])
             else:
                 for q in row['payload']['queries']:
                     dep=asset(db,'query',q)
@@ -387,7 +422,7 @@ def package_policy(body: PackagePolicy,user: User):
     p=body.model_dump()
     policy.lock_inventory({'lockfileVersion':3,'packages':{'':{},'node_modules/'+body.name:p|{'resolved':p['source']}}})
     with connect() as db:
-        db.execute('INSERT OR REPLACE INTO packages VALUES(?,?,?,?,?)',(body.name,body.version,body.integrity,body.source,int(body.approved)))
+        db.execute('INSERT INTO packages VALUES(?,?,?,?,?) ON CONFLICT(name,version) DO UPDATE SET integrity=excluded.integrity,source=excluded.source,approved=excluded.approved',(body.name,body.version,body.integrity,body.source,int(body.approved)))
         event(db,user['id'],'package.policy_changed',body.name+'@'+body.version,{'approved':body.approved})
     return {'ok':True}
 
@@ -415,6 +450,9 @@ def execution_manifest(db,body,user):
     if user.get('token_app') and user['token_app']!=body.app_id:
         raise HTTPException(403,'SDK token is bound to another app')
     app_row=auth.app_permission(db,user,body.app_id)
+    if db.execute('SELECT 1 FROM app_platform WHERE app_id=?', (body.app_id,)).fetchone():
+        from .hosting import runtime_release
+        return runtime_release(db, user, body.app_id)[1]
     release=db.execute('SELECT * FROM releases WHERE app_id=? AND version=?',(body.app_id,app_row['published_version'])).fetchone()
     if not release or release['status']!='approved':
         raise HTTPException(409,'No approved published release')
@@ -465,14 +503,21 @@ def token(body: dict,user: User):
     with connect() as db:
         app_id=body.get('app_id','')
         auth.app_permission(db,user,app_id)
+        hosted = db.execute('SELECT 1 FROM app_platform WHERE app_id=?', (app_id,)).fetchone()
+        if hosted:
+            from .hosting import runtime_release
+            release, _ = runtime_release(db, user, app_id)
         token,_,expiry=auth.issue_session(db,user['id'],'sdk',app_id)
+        if hosted:
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            db.execute('INSERT INTO runtime_sessions VALUES(?,?,?,?,?)', (token_hash, token_hash, app_id, release['id'], expiry))
         event(db,user['id'],'sdk.token_created',app_id)
     return {'token':token,'expires_at':expiry,'scope':'execute','app_id':app_id}
 
 @app.post('/api/tokens/revoke-all')
 def revoke_tokens(user: User):
     with connect() as db:
-        db.execute("DELETE FROM sessions WHERE user_id=? AND scope='sdk'",(user['id'],))
+        db.execute("DELETE FROM sessions WHERE user_id=? AND scope IN ('sdk','developer')",(user['id'],))
         event(db,user['id'],'sdk.tokens_revoked',user['id'])
     return {'ok':True}
 

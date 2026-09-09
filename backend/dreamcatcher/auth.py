@@ -29,7 +29,7 @@ def public_user(row):
 
 def issue_session(db, user_id, scope='browser', app_id=None):
     token, csrf = secrets.token_urlsafe(40), secrets.token_urlsafe(24)
-    expiry = time.time() + (3600 if scope == 'sdk' else 8 * 3600)
+    expiry = time.time() + (3600 if scope in ('sdk', 'developer') else 8 * 3600)
     db.execute('INSERT INTO sessions VALUES(?,?,?,?,?,?)',
                (hashlib.sha256(token.encode()).hexdigest(), user_id, csrf, expiry, scope, app_id))
     return token, csrf, expiry
@@ -42,12 +42,29 @@ def authenticate(request: Request):
     with connect() as db:
         row = db.execute('SELECT s.*,u.email,u.name,u.role,u.groups_json,u.enabled FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.hash=?',
                          (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
+        runtime = None
+        if row and row['scope'] == 'sdk' and db.execute('SELECT 1 FROM app_platform WHERE app_id=?', (row['app_id'],)).fetchone():
+            runtime = db.execute('SELECT * FROM runtime_sessions WHERE hash=?', (row['hash'],)).fetchone()
+            if not runtime or runtime['expires'] < time.time():
+                raise HTTPException(401, 'Hosted runtime token expired or was revoked')
     if not row or not row['enabled'] or row['expires'] < time.time():
         raise HTTPException(401, 'Session expired or revoked')
-    if bearer != (row['scope'] == 'sdk'):
+    if bearer != (row['scope'] in ('sdk', 'developer')):
         raise HTTPException(401, 'Wrong token type')
-    if bearer and request.url.path not in ('/api/me', '/api/execute/query', '/api/execute/skill'):
+    runtime_path = request.url.path.startswith('/api/v2/runtime/' + str(row['app_id']) + '/')
+    if bearer and row['scope'] == 'sdk' and not runtime_path and request.url.path not in ('/api/me', '/api/execute/query', '/api/execute/skill'):
         raise HTTPException(403, 'SDK token cannot administer the platform')
+    if bearer and row['scope'] == 'developer':
+        base = '/api/v2/apps/' + str(row['app_id'])
+        path = request.url.path
+        allowed = (path in ('/api/me', '/api/v2/contracts/app') and request.method == 'GET'
+                   or path == base + '/overview' and request.method == 'GET'
+                   or path == base + '/submissions' and request.method == 'POST'
+                   or path.startswith(base + '/submissions/') and path.endswith('/source') and request.method == 'GET'
+                   or path == base + '/agent' and request.method == 'GET'
+                   or path == base + '/agent/changes' and request.method == 'POST')
+        if not allowed:
+            raise HTTPException(403, 'Developer token cannot grant access, approve, or deploy')
     if not bearer and request.method not in ('GET', 'HEAD', 'OPTIONS'):
         if not hmac.compare_digest(request.headers.get('x-csrf-token', ''), row['csrf']):
             raise HTTPException(403, 'Missing or invalid CSRF token')
@@ -56,13 +73,17 @@ def authenticate(request: Request):
             raise HTTPException(403, 'Origin is not allowed')
     return {'id': row['user_id'], 'email': row['email'], 'name': row['name'], 'role': row['role'],
             'groups': json.loads(row['groups_json']), 'csrf': row['csrf'], 'session_hash': row['hash'],
-            'token_app': row['app_id'] if bearer else None, 'scope': row['scope']}
+            'token_app': row['app_id'] if bearer else None, 'scope': row['scope'],
+            'submission_id': runtime['submission_id'] if runtime else None}
 
 def require_role(user, *roles):
     if user['role'] not in roles:
         raise HTTPException(403, 'This action requires ' + ' or '.join(roles))
 
 def app_permission(db, user, app_id, permission='run'):
+    if db.execute('SELECT 1 FROM app_platform WHERE app_id=?', (app_id,)).fetchone():
+        from .hosting import app_permission as hosted_permission
+        return hosted_permission(db, user, app_id, 'use' if permission == 'run' else permission)
     row = db.execute('SELECT * FROM apps WHERE id=?', (app_id,)).fetchone()
     if not row:
         raise HTTPException(404, 'App not found')
