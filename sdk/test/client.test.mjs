@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createDreamcatcher,DreamcatcherError} from '../dist/index.js';
+test('query sends only registered reference, parameters and app binding',async()=>{let sent;const c=createDreamcatcher({baseUrl:'http://localhost:8000',appId:'build-readiness',getToken:()=> 'short-lived',fetch:async(u,o)=>{sent={url:u.toString(),...o};return new Response(JSON.stringify({rows:[{id:1}],truncated:false}),{status:200})}});const r=await c.queries.run('assembly-readiness@1.0.0',{program_id:'terran-r'});assert.equal(r.rows.length,1);assert.equal(sent.headers.Authorization,'Bearer short-lived');assert.deepEqual(JSON.parse(sent.body),{app_id:'build-readiness',reference:'assembly-readiness@1.0.0',parameters:{program_id:'terran-r'}});assert.equal(sent.redirect,'error')});
+test('surfaces authorization failure without retry',async()=>{const c=createDreamcatcher({baseUrl:'https://example.com',appId:'a',getToken:()=> 'x',fetch:async()=>new Response('{"detail":"Access denied"}',{status:403})});await assert.rejects(()=>c.identity(),e=>e instanceof DreamcatcherError&&e.status===403)});
+test('rejects insecure remote origins',()=>assert.throws(()=>createDreamcatcher({baseUrl:'http://example.com',appId:'a',getToken:()=> 'x'})));
+test('rejects credentials in base URL',()=>assert.throws(()=>createDreamcatcher({baseUrl:'https://secret@example.com',appId:'a',getToken:()=> 'x'})));

@@ -1,0 +1,4 @@
+# Optional connector: resolve and pin in your organization's dependency process.
+# Not needed for the tested local demo; real IAM integration requires validation.
+google-cloud-bigquery>=3,<4
+google-auth>=2,<3

@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+httpx
+authlib
+itsdangerous
+python-multipart
+sqlglot
+pytest
+python-dotenv

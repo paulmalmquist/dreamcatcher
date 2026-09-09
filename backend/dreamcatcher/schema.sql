@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied TEXT NOT NULL);
+INSERT OR IGNORE INTO schema_migrations VALUES(1, CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, password TEXT, role TEXT NOT NULL, groups_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1);
+CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires REAL NOT NULL, scope TEXT NOT NULL DEFAULT 'browser', app_id TEXT);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS apps(id TEXT PRIMARY KEY, owner TEXT NOT NULL REFERENCES users(id), payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, published_version TEXT, created REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_apps_owner ON apps(owner);
+CREATE TABLE IF NOT EXISTS grants(app_id TEXT NOT NULL REFERENCES apps(id), subject TEXT NOT NULL, permission TEXT NOT NULL CHECK(permission IN ('run','edit')), PRIMARY KEY(app_id,subject));
+CREATE TABLE IF NOT EXISTS favorites(user_id TEXT NOT NULL REFERENCES users(id), app_id TEXT NOT NULL REFERENCES apps(id), PRIMARY KEY(user_id,app_id));
+CREATE TABLE IF NOT EXISTS assets(kind TEXT NOT NULL, id TEXT NOT NULL, version TEXT NOT NULL, owner TEXT NOT NULL REFERENCES users(id), status TEXT NOT NULL, payload TEXT NOT NULL, digest TEXT NOT NULL, blob BLOB, created REAL NOT NULL, PRIMARY KEY(kind,id,version));
+CREATE TABLE IF NOT EXISTS releases(app_id TEXT NOT NULL REFERENCES apps(id), version TEXT NOT NULL, manifest TEXT NOT NULL, digest TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', evidence TEXT, reviewer TEXT, created REAL NOT NULL, PRIMARY KEY(app_id,version));
+CREATE TABLE IF NOT EXISTS packages(name TEXT NOT NULL, version TEXT NOT NULL, integrity TEXT NOT NULL, source TEXT NOT NULL, approved INTEGER NOT NULL, PRIMARY KEY(name,version));
+CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL, resource TEXT NOT NULL, details TEXT NOT NULL, created REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit(created);
+CREATE TABLE IF NOT EXISTS login_attempts(address TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at REAL NOT NULL);
