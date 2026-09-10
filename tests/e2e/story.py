@@ -140,6 +140,7 @@ def share(builder, app, grants):
 def login_ui(page, who):
     page.goto(ORIGIN)
     page.get_by_label('Email', exact=True).fill(who + '@demo.local')
+    expect(page.get_by_label('Email', exact=True)).to_have_value(who + '@demo.local')
     page.get_by_label('Password', exact=True).fill(PASSWORD)
     page.get_by_role('button', name='Enter your workspace').click()
     expect(page.get_by_role('tab', name='Gallery', exact=True)).to_be_visible()

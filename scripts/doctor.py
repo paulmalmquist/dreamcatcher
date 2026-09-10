@@ -38,7 +38,7 @@ def inspect(root=ROOT):
             record(name,bool(values.get(name)),'Replace WORK-CONNECT seam with a real approved company value')
         record('Separate state database',bool(values.get('DC_STATE_DATABASE_URL')) and values.get('DC_STATE_DATABASE_URL')!=values.get('DC_DATABASE_URL'),'Different migration/runtime roles and FORCE RLS must also be verified live')
         record('Migration separation',values.get('DC_AUTO_MIGRATE','false')=='false','Run scripts/migrate.py with a migration-only role, not at runtime')
-        for kind in ('BUILD','DEPLOY','AGENT','DATA'):
+        for kind in ('BUILD','DEPLOY','AGENT','DATA','EDGE'):
             record('Worker credential: '+kind,len(values.get('DC_WORKER_'+kind+'_KEY',''))>=32,'Separate secret per worker; a configured credential is not a healthy worker')
         record('PostgreSQL driver',importlib.util.find_spec('psycopg') is not None,'Resolve requirements-postgres.txt with the company dependency process')
     return {'mode':'production' if prod else 'local','network_checks_performed':False,'checks':checks,

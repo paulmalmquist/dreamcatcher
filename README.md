@@ -31,9 +31,15 @@ project IDs, IAM grants, dataset certification or credentials.
   container template. Small per-user state uses a separate database and optimistic writes.
 - Synthetic HTTP uploads for build readiness, supplier delivery and test telemetry,
   with negative tests. See [the v2 guide](docs/V2-PLATFORM.md).
+- Authenticated gallery launch: one-use code handoff to a separate HTTPS app origin,
+  a reference private edge, server-side runtime tokens and revocation on subsequent
+  requests. No gallery cookie is forwarded to uploaded code.
+- [Flight Deck](examples/flight-deck/README.md): a complete buildable React dashboard
+  source ZIP, plus a [Docker/Chromium integration story](docs/CONTAINER-STORY.md)
+  covering upload, review, launch, UI edit, rebuild, reapproval and access removal.
 
 **Not connected here:** corporate IdP/BigQuery, catalog attestation, sandbox/scanner,
-private hosting/edge, model worker, PostgreSQL and audit sink. The worker protocol
+company private hosting/edge, model worker, PostgreSQL and audit sink. The worker protocol
 and adapter seams exist; a queued job is not a real build/deployment. Unconfigured
 paths fail closed. See [verification](docs/VERIFICATION.md).
 

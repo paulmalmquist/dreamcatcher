@@ -58,7 +58,7 @@ def schema(user: User):
 @router.get('/capabilities')
 def capabilities(user: User):
     return {'version': '2.0.0', 'contract': 'dreamcatcher/v1', 'hosting': 'worker-based',
-            'workers_configured': {k: len(os.getenv('DC_WORKER_' + k.upper() + '_KEY', '')) >= 32 for k in ('build', 'deploy', 'agent', 'data')},
+            'workers_configured': {k: len(os.getenv('DC_WORKER_' + k.upper() + '_KEY', '')) >= 32 for k in ('build', 'deploy', 'agent', 'data', 'edge')},
             'control_database': 'postgresql' if os.getenv('DC_DATABASE_URL') else 'local-sqlite',
             'state_database': 'postgresql' if os.getenv('DC_STATE_DATABASE_URL') else 'local-sqlite',
             'note': 'Queued work requires an independently configured worker. No deployment or scan is simulated.'}
