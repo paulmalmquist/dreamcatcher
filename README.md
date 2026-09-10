@@ -18,6 +18,20 @@ your work Claude at [named connection seams](integrations/CONNECTIONS.json), act
 implementation files, and required live acceptance tests. Nothing guesses company
 project IDs, IAM grants, dataset certification or credentials.
 
+### New: admin console and pre-transfer hardening
+
+Sign in as `admin@demo.local` and open **Admin console → Mission control**.
+Applications, people/access, exact package policy, worker recovery, work-connection
+readiness and scoped audit history now have dedicated operating panels. These use
+real API records and permission checks, not prefilled dashboard metrics.
+See [the admin operating guide](docs/ADMIN-CONSOLE.md).
+
+The update also adds support/review deadlines, query budgets and refresh cadence,
+expiring image assurance, image-bound independent analytical review, worker
+heartbeats/dead-letter recovery, a shared-edge-session adapter contract, and twelve
+slowly constructed purple constellation shapes. None of this configures company
+connections automatically.
+
 - Hosted app registration and safe source ZIP intake; immutable submissions,
   independent review, digest-bound build/deployment reports and rollback by promoting
   a prior still-approved submission. External URL registration remains available.
@@ -85,13 +99,13 @@ Optional Docker path: after `python scripts/setup.py`, run `docker compose up --
 5. Set sharing to a team or Workspace. Sign in as viewer to test access. The outsider can see workspace-shared apps but cannot run their governed data queries.
 6. Export the sample skill ZIP. A destination needs the referenced query version and its own local approval. Importing the same id/version twice is rejected; a changed package requires a new version.
 7. Download the SDK from the homepage, create a one-hour app-bound token in app details, and follow [SDK instructions](sdk/README.md).
-8. Sign in as admin for people/groups and package policy. Sign in as reviewer to approve/revoke assets and inspect audit events. Revocation blocks subsequent executions even for already-published apps.
+8. Sign in as admin and open **Admin console** for people/groups, container packages, jobs, connections and audit. An app owner must explicitly grant `share` before an admin can change that app's lifecycle or suspend it. Restricted apps also require explicit inspection/review permissions. Sign in as reviewer to approve/revoke assets. Revocation blocks subsequent executions even for already-published apps.
 
 ## What is implemented
 
 | Capability | Implementation |
 | --- | --- |
-| Design | Responsive React gallery, original thumbnails, Three.js nebula/stars, reduced-motion default and pause |
+| Design | Responsive React gallery and admin console, brighter Three.js stars, 12 purple constellations drawn one edge at a time, reduced motion and pause |
 | Identity | Scrypt local passwords; configurable OIDC Authorization Code + PKCE; explicit membership provisioning |
 | App sharing | Private drafts; owner-controlled user/group/workspace run/edit grants; favorites; publish/unpublish |
 | Query governance | Immutable versions, SQL parsing, source/grain contracts, typed bound parameters, independent review and revocation |
@@ -100,7 +114,7 @@ Optional Docker path: after `python scripts/setup.py`, run `docker compose up --
 | Release gate | Manifest and lock digests, HMAC-signed build evidence, independent approval, current-policy rechecks |
 | Skills | Validated ZIP import/export, destination reapproval, deterministic query workflow execution; no arbitrary code execution |
 | SDK | Built ESM package with TypeScript declarations, identity/query/skill methods, short-lived app-scoped tokens |
-| Operations | Audit records, session revocation, tests, lockfiles, local setup, CI workflow, container recipe |
+| Operations | Admin console, lifecycle/analytical gates, scan expiry, query budgets, worker heartbeats/recovery, scoped audit, session revocation, tests and CI |
 
 ## Repository map
 
@@ -124,6 +138,8 @@ python -m pytest -q
 npm run typecheck
 npm run build
 npm run test:sdk
+npm run test:edge
+npm run test:frontend
 ```
 
 ## Push to your GitHub workspace

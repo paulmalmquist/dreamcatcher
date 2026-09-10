@@ -3,10 +3,11 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Textarea} from '@/components/ui/textarea';
 import {api,download,type Identity} from './api';
+import {LifecycleEditor,AnalyticalReviewForm,type LifecyclePolicy} from './lifecycle';
 
 type Submission={id:string;version:string;status:string;source_digest:string;findings:string[]};
 type Grant={subject:string;permission:string};
-type Overview={revision:number;enabled:number;classification:string;submissions:Submission[];grants:Grant[];deployments:{id:string;status:string;environment:string;url:string|null}[]};
+type Overview={revision:number;enabled:number;classification:string;submissions:Submission[];grants:Grant[];deployments:{id:string;status:string;environment:string;url:string|null}[];lifecycle:LifecyclePolicy|null;can_share:boolean;analytical_reviews:{submission_id:string;reviewer:string}[]};
 type Proposal={id:string;status:string;proposal:{summary:string;changes:{path:string;content:string}[]}|null};
 type Agent={agent_id:string;submission_id:string;shared_skills:string[];changes:Proposal[]};
 
@@ -60,6 +61,7 @@ export function HostedPanel({appId,user,onChange}:{appId:string;user:Identity;on
  <div className="release-buttons"><Button variant="outline" disabled={busy} onClick={()=>action(refresh)}>Refresh status</Button>
  <Button variant="outline" disabled={busy} onClick={()=>action(()=>api(`${base}/${data.enabled?'suspend':'resume'}`,'POST'))}>{data.enabled?'Suspend app':'Resume app'}</Button></div>
  <label>Upload source ZIP (up to 8 MiB)<Input type="file" accept=".zip" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(!file)return;const form=new FormData();form.append('file',file);void action(()=>api(`${base}/submissions`,'POST',form));e.target.value=''}}/></label>
+ <LifecycleEditor appId={appId} policy={data.lifecycle} canShare={data.can_share} onChange={refresh}/>
  {data.submissions.map(s=><article className="release-record" key={s.id}><div><strong>v{s.version}</strong><span className="badge">{s.status}</span></div><code title={s.source_digest}>Source {s.source_digest.slice(0,20)}…</code>
  {s.findings.map(f=><p className="finding" key={f}>{f}</p>)}<div className="release-buttons">
  <Button variant="outline" disabled={busy} onClick={()=>action(()=>download(`${base}/submissions/${s.id}/source`,`source-${s.version}.zip`))}>Export source</Button>
@@ -67,7 +69,7 @@ export function HostedPanel({appId,user,onChange}:{appId:string;user:Identity;on
  <Button variant="outline" disabled={busy||!['built','approved'].includes(s.status)||s.findings.length>0} onClick={()=>action(()=>api(`${base}/submissions/${s.id}/deploy`,'POST',{environment:'preview'}))}>Private preview</Button>
  <Button className="primary-button" disabled={busy||s.status!=='approved'||s.findings.length>0} onClick={()=>action(()=>api(`${base}/submissions/${s.id}/deploy`,'POST',{environment:'production'}))}>Promote</Button>
  {['admin','reviewer'].includes(user.role)&&<Button variant="outline" disabled={busy||s.status==='revoked'} onClick={()=>action(()=>api(`${base}/submissions/${s.id}/revoke`,'POST'))}>Revoke</Button>}
- </div></article>)}
+ </div>{data.analytical_reviews.some(r=>r.submission_id===s.id)&&<p className="muted">Independent analytical evidence recorded for this image.</p>}{['admin','reviewer'].includes(user.role)&&['built','approved'].includes(s.status)&&<AnalyticalReviewForm appId={appId} submissionId={s.id} onChange={refresh}/>}</article>)}
  <h3>Deployments</h3>{data.deployments.length?data.deployments.map(d=><div key={d.id}><p>{d.environment} · {d.status}</p>{d.status==='ready'&&d.environment==='production'&&<LaunchApp appId={appId}/>}</div>):<p className="muted">No deployment has been requested.</p>}
  <p className="muted">Launch opens the current approved production release. Preview routing requires a separately scoped preview edge; it never receives a production session.</p>
  <h3>Sharing capabilities</h3><p className="muted">discover, use, edit, deploy, share, and review are separate. App access never grants data access. Saving replaces the complete grant list.</p>

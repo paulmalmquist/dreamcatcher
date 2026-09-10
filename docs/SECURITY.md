@@ -50,4 +50,10 @@ python scripts/provision.py --issuer https://YOUR_ISSUER --subject PROVIDER_SUBJ
 
 ## Known scope limits
 
-Single organizational workspace; no cross-organization tenancy, public anonymous sharing, email invitations, automatic ownership transfer or secret-manager UI. App/user state isolation exists, but PostgreSQL RLS still requires live verification. Complete package enforcement and LLM execution require the unconnected trusted worker adapters; no remote build, real deployment or native dbt/Power BI catalog ingestion was exercised here. Docker and Windows commands are supplied but not executed. The frontend was compiled/typechecked, not end-to-end browser tested in this delivery.
+Single organizational workspace; no cross-organization tenancy, public anonymous sharing, email invitations, automatic ownership transfer or secret-manager UI. App/user state isolation exists, but PostgreSQL RLS still requires live verification. Complete package enforcement and LLM execution require the unconnected trusted worker adapters. The synthetic Flight Deck story builds/runs real Docker images and drives Chromium in CI; its scanner/catalog/deployment-admission/model evidence is test doubles, not live company acceptance. Windows execution, native dbt/Power BI ingestion and company hosting remain unverified. See VERIFICATION.md and the current commit's CI run.
+
+The admin console adds real permission-checked operations, not a superuser data
+bypass. Review deadlines, analytical attestations, query budgets, renewable worker
+leases and expiring image assurance are documented in ADMIN-CONSOLE.md. A recorded
+evidence URI/hash or persistent-adapter flag is not proof of real verification;
+the trusted work services and negative acceptance tests remain essential.

@@ -118,12 +118,14 @@ the model's natural-language assertions as security evidence.
 
 ## Worker operation and known limits
 
-`scripts/worker.py` handles one 15-minute lease with up to three claims. Worker keys
+`scripts/worker.py` handles one renewable 15-minute lease with up to three claims. Worker keys
 are separate by kind and must never be supplied to an untrusted build or app. Source
 fetches are lease-bound. Results are single-use; expired/stale/replayed leases fail.
-Three exhausted leases require operator reconciliation; there is not yet a heartbeat
-or automatic dead-letter repair. Break long builds into externally tracked jobs or
-implement reviewed renewable leases before using them.
+The helper renews every 30 seconds, bounded to one hour per attempt. The next claim
+sweep dead-letters three exhausted attempts. Admin-console cancellation/retry still
+requires external-job reconciliation; it does not kill cloud tasks. Deployment
+retries need fresh admission. See [the operating guide](ADMIN-CONSOLE.md) for
+lifecycle deadlines, image-assurance expiry, analytical review and query budgets.
 
 `integrations/adapters.py` intentionally raises IntegrationRequired. Implement the
 company-only work_connections module, trusted catalog attestor, runtime edge and
@@ -140,6 +142,7 @@ restore are work-integration acceptance items, not features claimed by mock test
 
 | Consumer | Endpoint family | Boundary |
 | --- | --- | --- |
+| Admin console | /api/v2/admin/*; /api/admin/users; /api/v2/runtime-packages | Admin role plus explicit app visibility/capabilities; no warehouse override |
 | Builder/reviewer UI | /api/v2/apps/* | Explicit app capabilities and browser CSRF |
 | SDK / app backend | /api/v2/runtime/{app}/*; /api/execute/* | User + app + current release + data policy |
 | CLI | app overview/source upload/source export | One-hour app-scoped developer token; no approval/deploy/sharing |

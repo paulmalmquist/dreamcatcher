@@ -60,7 +60,7 @@ def migrate():
     with connect() as db:
         if os.getenv('DC_DATABASE_URL'):
             db.execute('SELECT pg_advisory_xact_lock(71829101)')
-        for name in ('schema.sql', 'platform-schema.sql'):
+        for name in ('schema.sql', 'platform-schema.sql', 'operations-schema.sql'):
             sql = (Path(__file__).parent / name).read_text()
             if os.getenv('DC_DATABASE_URL'):
                 sql = sql.replace('BLOB', 'BYTEA').replace('REAL', 'DOUBLE PRECISION')

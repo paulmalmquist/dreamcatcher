@@ -3,7 +3,7 @@
 You are receiving a synthetic prototype, NOT an already-connected corporate platform.
 The owner wants this transferred to the work computer and connected to real systems.
 Read this file, `integrations/CONNECTIONS.json`, `docs/V2-PLATFORM.md`, and
-`docs/WORK-COMPUTER-HANDOFF.md` before changing integration behavior.
+`docs/WORK-COMPUTER-HANDOFF.md` and `docs/ADMIN-CONSOLE.md` before changing integration behavior.
 
 ## First actions
 
@@ -11,7 +11,8 @@ Read this file, `integrations/CONNECTIONS.json`, `docs/V2-PLATFORM.md`, and
    work checkout and approved company Git remote with the human; do not push to a
    personal remote. Preserve local changes. Do not copy company documents here.
 2. Run `python scripts/doctor.py --json`, `python -m pytest -q`, `npm run typecheck`,
-   `npm run build`, and `npm run test:sdk`. Report missing dependencies, not fake passes.
+   `npm run build`, `npm run test:sdk`, `npm run test:edge`, and
+   `npm run test:frontend`. Report missing dependencies, not fake passes.
 3. Search `WORK-CONNECT:` and the connection IDs in `integrations/CONNECTIONS.json`.
    These are intentional replacement seams, not TODOs to bypass with mock successes.
 4. With permission, inspect actual local company auth, BigQuery/dbt/catalog, CI,
@@ -37,7 +38,9 @@ Read this file, `integrations/CONNECTIONS.json`, `docs/V2-PLATFORM.md`, and
   continuously running privileged agent. Its output is an untrusted proposed UI
   patch. No IAM/SQL/secret/runtime edits or production writes through that capability.
 - The company private edge is unconnected; `integrations/private-edge/server.mjs`
-  is now an executable single-process reference with one-use launch handoff. Do not expose the container or
+  is an executable reference with one-use launch handoff and an async session-store
+  seam. Production requires a work-only `work-edge-sessions.mjs` shared-store adapter;
+  the local memory implementation is not durable. Do not expose the container or
   forward an identity header without validated authentication and gateway authorization.
   Preview routing/session isolation also needs real integration; queued is not deployed.
 - Small per-user app preferences belong in a separate state database, with FORCE RLS.
@@ -58,7 +61,13 @@ Create a company-only `work_connections.py` implementing `WorkAdapter`. Start wi
 catalog observation and a single delegated query, then isolated build/private
 hosting, then the approved model endpoint. Run `python scripts/worker.py --kind build
 --adapter work_connections` only after its sandbox boundary is reviewed. The command
-handles one lease; schedule repeated work with the approved job system.
+handles one renewable lease with a one-hour hard deadline; schedule repeated work
+with the approved job system. Reconcile external jobs before retrying dead letters.
+
+The admin console is backed by real scoped API records. Preserve separate admin/app/
+data permissions. Record app support ownership, review deadlines, exact-image scan
+freshness and independent golden-result review. Replace the Flight Deck synthetic
+metric expectations with SME-reviewed work evidence, not a model's assertion.
 
 Implement a work-only real-integration test suite alongside the synthetic tests:
 allowed user, denied user, disabled user, cross-app token, restricted reviewer,

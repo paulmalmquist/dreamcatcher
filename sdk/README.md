@@ -48,6 +48,30 @@ connection. Do not blindly retry writes with new idempotency keys. No result cac
 is supplied; a future cache must include user/entitlements, app release, query version,
 parameters and policy revision.
 
+### Dashboard refresh and cancellation
+
+```ts
+const controller = new AbortController();
+const result = await dc.queries.run(
+  'bq-build-readiness@1.0.0', {program_id: 'program-a'},
+  {signal: controller.signal},
+);
+// On navigation/unmount: controller.abort().
+```
+
+`DreamcatcherError.retryAfterSeconds` exposes a valid numeric `Retry-After` on 429.
+There are no automatic retries: respect the delay, cancel obsolete refreshes, and
+disable repeat-submit controls. Aborting the HTTP client is not proof that an
+already-started BigQuery job was cancelled; work integration must reconcile that.
+App-wide budgets and per-caller/query minimum refresh intervals are managed by the
+app's lifecycle policy. They apply across both legacy and v2 query routes. Failed
+executions consume admitted budget too; these are request limits, not billing caps.
+
+The Flight Deck fixture extracts its metric computation into `metrics.mjs` and
+checks percent units, duplicate grain, empty results and truncation with
+`npm run test:frontend` in the full repository. Replace the synthetic metric's
+golden expectations with SME-approved results at work, retaining negative cases.
+
 ## CLI
 
 ```sh

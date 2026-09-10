@@ -7,6 +7,7 @@ import argparse
 import importlib
 import os
 import sys
+import threading
 from pathlib import Path
 import httpx
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,17 @@ def run_once(kind, adapter, client):
     job = response.json()['job']
     if job is None:
         return 'idle'
+    stop, lost = threading.Event(), threading.Event()
+    def renew():
+        while not stop.wait(30):
+            try:
+                beat = client.post(f"/api/v2/workers/{kind}/jobs/{job['id']}/heartbeat", json={'lease': job['lease']}, timeout=10)
+                beat.raise_for_status()
+            except Exception:
+                lost.set()
+                return
+    heartbeat = threading.Thread(target=renew, daemon=True)
+    heartbeat.start()
     try:
         if kind in ('build', 'agent'):
             source = client.get(f"/api/v2/workers/{kind}/jobs/{job['id']}/source", headers={'x-job-lease': job['lease']})
@@ -30,6 +42,13 @@ def run_once(kind, adapter, client):
     except Exception:
         # Do not print source, tokens, model output, or exception text to job logs.
         body = {'lease': job['lease'], 'failure_code': {'build': 'BUILD_FAILED', 'agent': 'MODEL_FAILED', 'deploy': 'HOSTING_FAILED'}[kind]}
+    finally:
+        stop.set()
+        heartbeat.join(timeout=11)
+    if lost.is_set():
+        # A revoked/lost lease may not publish results. The adapter must separately
+        # reconcile its external job; Python threads do not cancel cloud builds.
+        return 'lease_lost_reconcile_external_job'
     response = client.post(f"/api/v2/workers/{kind}/jobs/{job['id']}/report", json=body)
     response.raise_for_status()
     return response.json()['status']

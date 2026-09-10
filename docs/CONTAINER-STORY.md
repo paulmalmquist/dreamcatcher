@@ -93,10 +93,11 @@ Operator configuration: `DC_CONTROL_ORIGIN`, `DC_GALLERY_ORIGIN`,
 
 Work integration must provision real per-app origins, trusted certificates,
 private upstream ingress, workload identity/mTLS, restricted egress, edge rate
-limits and operator-only atomic routing updates. The in-memory session map is
-single-process: use an approved encrypted/scoped session store for multiple replicas;
-do not share a bearer token across users or persist it in browser storage. Restart
-currently requires users to relaunch. Prefer per-app-scoped edge credentials over
+limits and operator-only atomic routing updates. The local memory session adapter is
+single-process and requires relaunch after restart. Production startup requires a
+work-only `work-edge-sessions.mjs` shared-store adapter; see [the contract and live
+acceptance tests](ADMIN-CONSOLE.md#shared-edge-session-seam). Do not share a bearer
+token across users or persist it in browser storage. Prefer per-app-scoped edge credentials over
 the reference's single privileged key. Preview remains separately scoped and is
 not launchable via a production ticket.
 Revocation blocks future requests; it cannot recall information someone has

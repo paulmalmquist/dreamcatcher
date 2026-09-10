@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
+import {summarizeReadiness} from './metrics.mjs';
 
 function Dashboard(){
  const [program,setProgram]=useState('program-a');
@@ -8,11 +9,11 @@ function Dashboard(){
   const request=new AbortController();setBusy(true);setError('');setRows([]);
   fetch('/api/dashboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({program_id:program}),signal:request.signal})
    .then(async r=>{if(!r.ok)throw Error('Access unavailable. Launch again from Dreamcatcher or contact your app owner.');return r.json()})
-   .then(data=>{setRows(data.rows);setBusy(false)})
+   .then(data=>{summarizeReadiness(data.rows,data.truncated);setRows(data.rows);setBusy(false)})
    .catch(e=>{if(e.name!=='AbortError'){setError(e.message);setBusy(false)}});
   return()=>request.abort();
  },[program,refresh]);
- const readiness=rows.length?Math.round(rows.reduce((n,r)=>n+Number(r.readiness_pct),0)/rows.length):null;
+ const {readiness}=summarizeReadiness(rows);
  return <main>
   <header><span className="brand">dreamcatcher <span>/ flight deck</span></span><span className="badge">SYNTHETIC LAB</span></header>
   <section className="heading"><div><p className="eyebrow">MANUFACTURING / GOVERNED ANALYTICS</p><h1>Build readiness</h1><p>Assembly readiness for the programs you can access.</p></div>

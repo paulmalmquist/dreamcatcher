@@ -42,6 +42,10 @@ def leased(db, kind, job_id, lease):
 def claim(kind: Kind, request: Request):
     authorize(request, kind)
     with connect() as db:
+        from .operations import terminal_job, job_app
+        for exhausted in db.execute("SELECT * FROM platform_jobs WHERE kind=? AND status='leased' AND lease_until<? AND attempts>=3", (kind, time.time())).fetchall():
+            if terminal_job(db, exhausted, 'dead_letter', 'LEASES_EXHAUSTED'):
+                event(db, 'worker:' + kind, 'job.dead_letter', job_app(db, exhausted), {'job_id': exhausted['id']})
         row = db.execute("SELECT * FROM platform_jobs WHERE kind=? AND attempts<3 AND (status='queued' OR (status='leased' AND lease_until<?)) ORDER BY created LIMIT 1", (kind, time.time())).fetchone()
         if not row:
             return {'job': None}
@@ -50,6 +54,7 @@ def claim(kind: Kind, request: Request):
         cursor = db.execute("UPDATE platform_jobs SET status='leased',lease_hash=?,lease_until=?,attempts=attempts+1 WHERE id=? AND attempts=? AND (status='queued' OR (status='leased' AND lease_until<?))", (hashlib.sha256(token.encode()).hexdigest(), until, row['id'], row['attempts'], time.time()))
         if cursor.rowcount != 1:
             return {'job': None}
+        db.execute('INSERT INTO job_lease_limits VALUES(?,?) ON CONFLICT(job_id) DO UPDATE SET deadline=excluded.deadline', (row['id'], time.time() + 3600))
         job = {'id': row['id'], 'kind': kind, 'target': row['target'], 'lease': token, 'expires_at': until}
         if kind == 'build':
             sub = db.execute('SELECT * FROM submissions WHERE id=?', (row['target'],)).fetchone()
@@ -63,6 +68,24 @@ def claim(kind: Kind, request: Request):
             change = db.execute('SELECT * FROM agent_changes WHERE id=?', (row['target'],)).fetchone()
             job.update({'request': change['prompt'], 'component': change['component'], 'context': hosting.maintainer_context(db, change['app_id'], change['submission_id'])})
         return {'job': job}
+
+
+class LeaseProof(Strict):
+    lease: str = Field(min_length=20, max_length=100)
+
+
+@router.post('/{kind}/jobs/{job_id}/heartbeat')
+def heartbeat(kind: Kind, job_id: str, body: LeaseProof, request: Request):
+    authorize(request, kind)
+    with connect() as db:
+        job = leased(db, kind, job_id, body.lease)
+        limit = db.execute('SELECT deadline FROM job_lease_limits WHERE job_id=?', (job_id,)).fetchone()
+        if not limit or limit['deadline'] <= time.time():
+            raise HTTPException(409, 'Lease reached its one-hour hard deadline')
+        until = min(time.time() + 900, limit['deadline'])
+        if db.execute("UPDATE platform_jobs SET lease_until=? WHERE id=? AND status='leased' AND lease_hash=? AND lease_until>=?", (until, job_id, job['lease_hash'], time.time())).rowcount != 1:
+            raise HTTPException(409, 'Lease changed during renewal')
+    return {'expires_at': until, 'hard_deadline': limit['deadline']}
 
 
 @router.get('/{kind}/jobs/{job_id}/source')
@@ -97,7 +120,7 @@ def report(kind: Kind, job_id: str, body: Report, request: Request):
     with connect() as db:
         job = leased(db, kind, job_id, body.lease)
         # CAS first in this transaction: two concurrent reports cannot both commit.
-        if db.execute("UPDATE platform_jobs SET status='completed',lease_hash=NULL WHERE id=? AND status='leased' AND lease_hash=?", (job_id, job['lease_hash'])).rowcount != 1:
+        if db.execute("UPDATE platform_jobs SET status='completed',lease_hash=NULL,lease_until=NULL WHERE id=? AND status='leased' AND lease_hash=?", (job_id, job['lease_hash'])).rowcount != 1:
             raise HTTPException(409, 'Job already completed')
         if body.failure_code:
             db.execute("UPDATE platform_jobs SET status='failed',detail=? WHERE id=?", (body.failure_code, job_id))
@@ -112,6 +135,7 @@ def report(kind: Kind, job_id: str, body: Report, request: Request):
                 if sub['status'] != 'queued' or parsed.source_digest != sub['source_digest'] or parsed.manifest_digest != sub['manifest_digest']:
                     raise HTTPException(409, 'Build report does not match pending source')
                 db.execute("UPDATE submissions SET status='built',image=?,evidence=? WHERE id=?", (parsed.image, canonical(parsed.model_dump()), sub['id']))
+                record_assurance(db, sub['id'], parsed.image, all(parsed.checks.get(k) is True for k in hosting.REQUIRED_CHECKS))
             elif kind == 'agent':
                 change = db.execute('SELECT * FROM agent_changes WHERE id=?', (job['target'],)).fetchone()
                 sub = db.execute('SELECT * FROM submissions WHERE id=?', (change['submission_id'],)).fetchone()
@@ -144,6 +168,31 @@ def report(kind: Kind, job_id: str, body: Report, request: Request):
         except ValueError:
             raise HTTPException(422, 'Worker report does not satisfy its typed contract') from None
     return {'status': 'completed'}
+
+
+def record_assurance(db, submission_id, image, passed):
+    validity = max(60, min(604800, int(os.getenv('DC_SCAN_VALIDITY_SECONDS', '86400'))))
+    db.execute('INSERT INTO release_assurance VALUES(?,?,?,?,?) ON CONFLICT(submission_id) DO UPDATE SET image=excluded.image,observed=excluded.observed,expires=excluded.expires,passed=excluded.passed', (submission_id, image, time.time(), time.time() + validity, int(passed)))
+
+
+class Rescan(Strict):
+    submission_id: str = Field(max_length=80)
+    image: str = Field(max_length=600)
+    passed: bool
+    evidence_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    evidence_uri: str = Field(pattern=r'^(?:gs://|https://)[^\s]+$', max_length=1000)
+
+
+@router.post('/build/rescan')
+def rescan(body: Rescan, request: Request):
+    authorize(request, 'build')
+    with connect() as db:
+        row = db.execute('SELECT * FROM submissions WHERE id=?', (body.submission_id,)).fetchone()
+        if not row or row['image'] != body.image or row['status'] not in ('built', 'approved'):
+            raise HTTPException(409, 'Rescan must bind an existing built image')
+        record_assurance(db, row['id'], body.image, body.passed)
+        event(db, 'worker:build', 'image.rescanned', row['app_id'], body.model_dump())
+    return {'recorded': True}
 
 
 @router.post('/data/observations')

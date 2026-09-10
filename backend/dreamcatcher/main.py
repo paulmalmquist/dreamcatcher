@@ -85,9 +85,11 @@ app = FastAPI(title='Dreamcatcher API',version='2.0.0',lifespan=lifespan,docs_ur
 from .platform_api import router as platform_router
 from .workers import router as worker_router
 from .launch import router as launch_router
+from .operations import router as operations_router
 app.include_router(platform_router)
 app.include_router(worker_router)
 app.include_router(launch_router)
+app.include_router(operations_router)
 app.add_middleware(SessionMiddleware,secret_key=os.getenv('DC_SESSION_SECRET') or secrets.token_hex(32),
                    session_cookie='dc_oidc_state',https_only=auth.PRODUCTION,same_site='lax',max_age=600)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=[x.strip() for x in os.getenv('DC_ALLOWED_HOSTS','localhost,127.0.0.1,testserver').split(',')])
@@ -474,6 +476,8 @@ def execute_query(body: Execution,user: User):
         manifest=execution_manifest(db,body,user)
         if body.reference not in manifest['queries']:
             raise HTTPException(403,'Query is not in the approved app release')
+        from .operations import budget
+        budget(body.app_id, user['id'], body.reference)
         result=policy.run_query(db,body.reference,body.parameters,user)
         event(db,user['id'],'query.executed',body.reference,{'app_id':body.app_id,'rows':len(result['rows'])})
     return result
@@ -500,6 +504,8 @@ def execute_skill(body: Execution,user: User):
                     params[k]=body.parameters[key]
                 else:
                     params[k]=v
+            from .operations import budget
+            budget(body.app_id, user['id'], step['query'])
             results.append(policy.run_query(db,step['query'],params,user))
         event(db,user['id'],'skill.executed',body.reference,{'app_id':body.app_id,'steps':len(results)})
     return {'results':results}

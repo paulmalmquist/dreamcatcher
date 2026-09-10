@@ -21,6 +21,7 @@ jobs:
       - run: python -m pytest -q
       - run: npm run test:sdk
       - run: npm run test:edge
+      - run: npm run test:frontend
   container-story:
     name: Flight Deck container and browser story
     runs-on: ubuntu-latest

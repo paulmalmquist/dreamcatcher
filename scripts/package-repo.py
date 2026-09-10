@@ -11,7 +11,7 @@ with zipfile.ZipFile(args.output,'x',zipfile.ZIP_DEFLATED) as archive:
         relative=Path(name);path=root/relative
         if not path.is_file() or path.is_symlink() or any(part in excluded for part in relative.parts):continue
         if relative.parts[:2] in (('frontend','dist'),('sdk','dist')):continue
-        if path.name=='work_connections.py':continue
+        if path.name in ('work_connections.py','work-edge-sessions.mjs'):continue
         if path.name.startswith('.env') and path.name!='.env.example':continue
         if path.suffix in ('.sqlite','.db','.pyc','.pem','.key') or path.name.endswith('.zip'):continue
         archive.write(path,Path('dreamcatcher')/relative)

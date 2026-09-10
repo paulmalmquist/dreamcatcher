@@ -84,9 +84,11 @@ def overview(app_id: str, user: User):
         rows = []
         for r in db.execute('SELECT * FROM submissions WHERE app_id=? ORDER BY created DESC', (app_id,)):
             rows.append({k: r[k] for k in ('id', 'version', 'status', 'source_digest', 'manifest_digest', 'image', 'submitter', 'reviewer', 'created')} | {'findings': hosting.findings(db, r), 'manifest': json.loads(r['manifest'])})
-        return {**p, 'submissions': rows,
+        from .operations import lifecycle, can
+        return {**p, 'submissions': rows, 'lifecycle': lifecycle(db, app_id), 'can_share': can(db, user, app_id, 'share'),
                 'grants': [dict(r) for r in db.execute('SELECT subject,permission FROM capability_grants WHERE app_id=?', (app_id,))],
                 'deployments': [dict(r) for r in db.execute('SELECT * FROM deployments WHERE app_id=? ORDER BY created DESC', (app_id,))],
+                'analytical_reviews': [dict(r) for r in db.execute('SELECT r.* FROM analytical_reviews r JOIN submissions s ON s.id=r.submission_id WHERE s.app_id=?', (app_id,))],
                 'agent': dict(r) if (r := db.execute('SELECT * FROM app_agents WHERE app_id=?', (app_id,)).fetchone()) else None}
 
 
@@ -207,6 +209,18 @@ def package_policy(body: PackageRule, user: User):
     return {'ok': True}
 
 
+@router.post('/runtime-packages', status_code=201)
+def create_package_rule(body: Dependency, user: User):
+    """Create-only: never revoke an existing approval through an add dialog."""
+    auth.require_role(user, 'admin')
+    with connect() as db:
+        cursor = db.execute('INSERT INTO runtime_packages VALUES(?,?,?,?,?,0) ON CONFLICT(ecosystem,name,version,integrity) DO NOTHING', (body.ecosystem, body.name, body.version, body.integrity, body.source))
+        if cursor.rowcount != 1:
+            raise HTTPException(409, 'Exact package rule already exists; use its explicit approve/revoke control')
+        event(db, user['id'], 'runtime_package.created', body.ecosystem + ':' + body.name, {'version': body.version, 'approved': False})
+    return {'ok': True, 'approved': False}
+
+
 @router.get('/data-products')
 def products(user: User):
     with connect() as db:
@@ -318,6 +332,8 @@ def query(app_id: str, body: QueryCall, user: User):
         _, manifest = hosting.runtime_release(db, user, app_id)
         if body.reference not in manifest['queries']:
             raise HTTPException(403, 'Query is not declared by this release')
+        from .operations import budget
+        budget(app_id, user['id'], body.reference)
         result = governance.run_query(db, body.reference, body.parameters, user)
         event(db, user['id'], 'runtime.query', app_id, {'reference': body.reference, 'rows': len(result['rows'])})
         return result

@@ -170,6 +170,11 @@ def launch_ui(page, origin):
 def approve_ui(page, version):
     open_app(page)
     record = release_record(page, version)
+    record.get_by_text('Record independent analytical review', exact=True).click()
+    record.get_by_label('Retained golden-test evidence URI').fill('git:tests/frontend.test.mjs')
+    record.get_by_label('Evidence SHA-256', exact=True).fill(hashlib.sha256((ROOT / 'tests/frontend.test.mjs').read_bytes()).hexdigest())
+    record.get_by_role('button', name='Record reviewed evidence', exact=True).click()
+    expect(record.get_by_text('Independent analytical evidence recorded for this image.', exact=True)).to_be_visible()
     record.get_by_role('button', name='Approve', exact=True).click()
     expect(record.get_by_text('approved', exact=True)).to_be_visible()
 
@@ -220,7 +225,7 @@ def run():
                 env.pop(key)
         env.update(DC_ENV='local', DC_DEMO='true', DC_E2E_SYNTHETIC='1', DC_DATA_DIR=str(work / 'data'), DC_ORIGIN=ORIGIN,
             DC_BUILD_SIGNING_KEY=KEY, DC_SESSION_SECRET=KEY, DC_IMAGE_REGISTRIES='registry.example.invalid/lab',
-            DC_APP_RUNTIME_SUFFIX=SUFFIX, DC_APP_RUNTIME_PORT='19443', DC_BQ_QUERIES_PER_MINUTE='100')
+            DC_APP_RUNTIME_SUFFIX=SUFFIX, DC_APP_RUNTIME_PORT='19443', DC_BQ_QUERIES_PER_MINUTE='100', DC_REQUIRE_ANALYTICAL_REVIEW='true')
         env.update({'DC_WORKER_' + kind + '_KEY': KEY for kind in ('BUILD', 'DEPLOY', 'AGENT', 'DATA', 'EDGE')})
         try:
             log = (OUT / 'gateway.log').open('w'); logs.append(log)
@@ -238,13 +243,15 @@ def run():
             zip_path = work / 'flight-deck.zip'; zip_path.write_bytes(pack.source_bundle())
             with sync_playwright() as pw, login_api('builder') as builder:
                 browser = pw.chromium.launch(args=['--host-resolver-rules=MAP *.apps.localhost 127.0.0.1', '--enable-unsafe-swiftshader'])
-                contexts = {who: browser.new_context(ignore_https_errors=True, reduced_motion='reduce', viewport={'width': 1440, 'height': 1080}) for who in ('builder', 'reviewer', 'viewer', 'outsider')}
+                contexts = {who: browser.new_context(ignore_https_errors=True, reduced_motion='reduce', viewport={'width': 1440, 'height': 1080}) for who in ('builder', 'reviewer', 'viewer', 'outsider', 'admin')}
                 pages = {who: context.new_page() for who, context in contexts.items()}
                 browser_errors = []
                 for context in contexts.values():
                     context.on('weberror', lambda error: browser_errors.append(str(error.error)))
                 for who, page in pages.items():
                     login_ui(page, who)
+                    if who != 'admin':
+                        expect(page.get_by_role('tab', name='Admin console', exact=True)).to_have_count(0)
                 page = pages['builder']
                 page.get_by_role('button', name='Upload your app').click()
                 form = page.locator('.hosted-registration')
@@ -319,6 +326,58 @@ def run():
                 response = pages['viewer'].reload()
                 assert response.status == 401
                 step('Revoke sharing; existing tab loses query access and reload cannot fetch HTML')
+                admin = pages['admin']
+                admin.get_by_role('tab', name='Admin console', exact=True).click()
+                expect(admin.get_by_role('heading', name='Mission control', exact=True)).to_be_visible()
+                admin.get_by_role('tab', name='Applications', exact=True).click()
+                managed = admin.get_by_role('row').filter(has_text='Flight Deck')
+                expect(managed.get_by_role('button', name='Suspend', exact=True)).to_be_disabled()
+                share(builder, app, [{'subject': 'user:admin', 'permission': 'share'}])
+                admin.get_by_role('button', name='Refresh', exact=True).click()
+                expect(managed.get_by_role('button', name='Lifecycle', exact=True)).to_be_enabled()
+                managed.get_by_role('button', name='Lifecycle', exact=True).click()
+                dialog = admin.get_by_role('dialog')
+                dialog.get_by_label('Support contact', exact=True).fill('Synthetic Flight Deck team')
+                from datetime import datetime, timezone, timedelta
+                due = (datetime.now(timezone.utc) + timedelta(days=30)).date().isoformat()
+                dialog.get_by_label('Access review due (UTC)', exact=True).fill(due)
+                dialog.get_by_label('App query requests per minute', exact=True).fill('75')
+                dialog.get_by_role('button', name='Save lifecycle policy', exact=True).click()
+                expect(dialog).to_have_count(0)
+                expect(managed.get_by_text('Limit 75', exact=True)).to_be_visible()
+                managed.get_by_role('button', name='Suspend', exact=True).click()
+                admin.get_by_role('button', name='Confirm change', exact=True).click()
+                expect(managed.get_by_text('Suspended', exact=True)).to_be_visible()
+                managed.get_by_role('button', name='Resume', exact=True).click()
+                admin.get_by_role('button', name='Confirm change', exact=True).click()
+                expect(managed.get_by_role('button', name='Suspend', exact=True)).to_be_enabled()
+                assert checked(builder.get(f'/api/v2/apps/{app}/overview'))['enabled']
+                step('Admin console respects app grants, saves lifecycle limits and suspends/resumes through confirmed API controls')
+                admin.get_by_role('tab', name='People & access', exact=True).click()
+                account = admin.get_by_role('row').filter(has_text='outsider@demo.local')
+                for status in ('false', 'true'):
+                    account.get_by_role('button', name='Edit access', exact=True).click()
+                    dialog = admin.get_by_role('dialog')
+                    dialog.get_by_label('Account status', exact=True).select_option(status)
+                    dialog.get_by_role('button', name='Review change', exact=True).click()
+                    admin.get_by_role('button', name='Confirm change', exact=True).click()
+                    expect(account.get_by_text('Enabled' if status == 'true' else 'Disabled', exact=True)).to_be_visible()
+                    if status == 'false':
+                        assert httpx.post(ORIGIN + '/api/login', json={'email': 'outsider@demo.local', 'password': PASSWORD}).status_code == 401
+                admin.get_by_role('tab', name='Connections', exact=True).click()
+                expect(admin.get_by_role('heading', name='Work connections', exact=True)).to_be_visible()
+                expect(admin.get_by_text('Unverified', exact=True)).to_have_count(9)
+                admin.get_by_role('tab', name='Worker jobs', exact=True).click()
+                expect(admin.get_by_text('completed', exact=True)).to_have_count(5)
+                admin.get_by_role('tab', name='Audit history', exact=True).click()
+                expect(admin.get_by_role('cell', name='user.updated', exact=True)).to_have_count(2)
+                expect(admin.get_by_role('cell', name='app.lifecycle_changed', exact=True)).to_be_visible()
+                admin.screenshot(path=str(OUT / '05-admin-audit.png'), full_page=True)
+                admin.get_by_role('tab', name='Overview', exact=True).click()
+                admin.set_viewport_size({'width': 390, 'height': 844})
+                expect(admin.get_by_role('heading', name='Mission control', exact=True)).to_be_visible()
+                admin.screenshot(path=str(OUT / '06-admin-mobile.png'), full_page=True)
+                step('Admin account disable/re-enable, unverified connections, scoped worker history and audit records work in Chromium')
                 assert not browser_errors, browser_errors
                 REPORT['uncaught_browser_errors'] = browser_errors
                 browser.close()

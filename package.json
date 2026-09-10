@@ -6,6 +6,7 @@
     "typecheck":"npm run typecheck -w frontend && npm run build -w sdk",
     "test:sdk":"npm run test -w sdk",
     "test:edge":"node --test tests/edge.test.mjs",
+    "test:frontend":"node --test tests/frontend.test.mjs",
     "dev":"npm run dev -w frontend"
   },
   "engines":{"node":">=22.14.0"}
