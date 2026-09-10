@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 if os.getenv('DC_E2E_SYNTHETIC') != '1' or os.getenv('DC_ENV') != 'local' or os.getenv('DC_DEMO') != 'true':
@@ -23,6 +24,18 @@ def synthetic_warehouse(payload, bound, user):
 # Only the remote warehouse call is substituted. The real gateway still performs
 # identity, group, query approval, data-product, release, parameter and cost checks.
 governance.run_bigquery = synthetic_warehouse
+
+
+@app.middleware('http')
+async def test_api_timing(request, call_next):
+    started = time.monotonic()
+    response = await call_next(request)
+    if request.url.path.startswith('/api/'):
+        print('E2E_API', request.method, request.url.path, response.status_code,
+              round(time.monotonic() - started, 3), flush=True)
+    return response
+
+
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host='127.0.0.1', port=18000, access_log=False)

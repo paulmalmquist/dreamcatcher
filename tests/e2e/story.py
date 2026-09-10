@@ -142,8 +142,10 @@ def login_ui(page, who):
     page.get_by_label('Email', exact=True).fill(who + '@demo.local')
     expect(page.get_by_label('Email', exact=True)).to_have_value(who + '@demo.local')
     page.get_by_label('Password', exact=True).fill(PASSWORD)
-    page.get_by_role('button', name='Enter your workspace').click()
-    expect(page.get_by_role('tab', name='Gallery', exact=True)).to_be_visible()
+    with page.expect_response(lambda r: r.url == ORIGIN + '/api/login' and r.request.method == 'POST') as response:
+        page.get_by_role('button', name='Enter your workspace').click()
+    assert response.value.status == 200, 'Browser login failed: ' + str(response.value.status)
+    expect(page.get_by_role('tab', name='Gallery', exact=True)).to_be_visible(timeout=15000)
 
 
 def open_app(page, release=True):
@@ -228,7 +230,7 @@ def run():
             zip_path = work / 'flight-deck.zip'; zip_path.write_bytes(pack.source_bundle())
             with sync_playwright() as pw, login_api('builder') as builder:
                 browser = pw.chromium.launch(args=['--host-resolver-rules=MAP *.apps.localhost 127.0.0.1', '--enable-unsafe-swiftshader'])
-                contexts = {who: browser.new_context(ignore_https_errors=True, viewport={'width': 1440, 'height': 1080}) for who in ('builder', 'reviewer', 'viewer', 'outsider')}
+                contexts = {who: browser.new_context(ignore_https_errors=True, reduced_motion='reduce', viewport={'width': 1440, 'height': 1080}) for who in ('builder', 'reviewer', 'viewer', 'outsider')}
                 pages = {who: context.new_page() for who, context in contexts.items()}
                 browser_errors = []
                 for context in contexts.values():

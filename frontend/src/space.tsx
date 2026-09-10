@@ -2,8 +2,8 @@
 import {useEffect,useRef} from 'react';
 import * as THREE from 'three';
 export default function Space({playing}:{playing:boolean}){
- const host=useRef<HTMLDivElement>(null),active=useRef(playing);
- useEffect(()=>{active.current=playing},[playing]);
+ const host=useRef<HTMLDivElement>(null),active=useRef(playing),needsFrame=useRef(true);
+ useEffect(()=>{active.current=playing;needsFrame.current=true},[playing]);
  useEffect(()=>{
   if(!host.current)return;const el=host.current;let renderer:THREE.WebGLRenderer;
   try{renderer=new THREE.WebGLRenderer({alpha:true,antialias:false,powerPreference:'low-power'})}catch{return}
@@ -18,8 +18,8 @@ export default function Space({playing}:{playing:boolean}){
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}float fbm(vec2 p){float v=0.;float a=.5;for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.02+vec2(12.3,6.1);a*=.5;}return v;}
 void main(){vec2 p=vUv;vec2 q=vec2((p.x-.73)*aspect,p.y-.76);float n=fbm(q*3.+vec2(time*.015,time*.009));float cloud=exp(-length(q*vec2(.95,2.4))*2.2)*pow(n,2.0);float rim=exp(-abs(length((q+vec2(-.03,.35))*vec2(.78,1.55))-.5)*35.);rim*=smoothstep(-.25,.28,q.y);vec3 col=vec3(.24,.075,.52)*cloud*1.1+vec3(.38,.22,.65)*rim*.14;col+=vec3(.055,.15,.28)*exp(-length((q+vec2(.4,.05))*2.8))*n*.24;gl_FragColor=vec4(col,1.);}`});
   const nebula=new THREE.Mesh(planeGeo,nebulaMaterial);nebula.renderOrder=-1;scene.add(nebula);
-  const resize=()=>{const w=el.clientWidth,h=el.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();nebulaMaterial.uniforms.aspect.value=w/h;};resize();window.addEventListener('resize',resize);
-  let frame=0,last=0,time=0;const tick=(now:number)=>{frame=requestAnimationFrame(tick);if(document.hidden)return;if(now-last<32)return;const dt=Math.min((now-last)/1000,.05);last=now;if(active.current){time+=dt;stars.rotation.z=time*.002;stars.rotation.y=Math.sin(time*.025)*.025;nebulaMaterial.uniforms.time.value=time}renderer.render(scene,camera)};frame=requestAnimationFrame(tick);
+  const resize=()=>{const w=el.clientWidth,h=el.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();nebulaMaterial.uniforms.aspect.value=w/h;needsFrame.current=true};resize();window.addEventListener('resize',resize);
+  let frame=0,last=0,time=0;const tick=(now:number)=>{frame=requestAnimationFrame(tick);if(document.hidden||(!active.current&&!needsFrame.current))return;if(now-last<32)return;const dt=Math.min((now-last)/1000,.05);last=now;if(active.current){time+=dt;stars.rotation.z=time*.002;stars.rotation.y=Math.sin(time*.025)*.025;nebulaMaterial.uniforms.time.value=time}renderer.render(scene,camera);needsFrame.current=false};frame=requestAnimationFrame(tick);
   return()=>{cancelAnimationFrame(frame);window.removeEventListener('resize',resize);geo.dispose();material.dispose();planeGeo.dispose();nebulaMaterial.dispose();renderer.dispose();renderer.domElement.remove()};
  },[]);
  return <div ref={host} className="space-canvas" aria-hidden="true"/>;
