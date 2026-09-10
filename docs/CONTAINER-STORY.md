@@ -57,6 +57,10 @@ when the run ends. The script cleans up only its own containers/processes.
 use permission, current release policy, an admitted production deployment and a
 configured independent edge. It returns a 60-second code and exact form destination.
 The gallery POSTs the code; neither bearer credentials nor the code enter a URL.
+Its `Referrer-Policy: strict-origin` preserves Origin without exposing paths or
+query strings. `same-origin`/`no-referrer` would send a null Origin for this form
+handoff under the [Fetch standard](https://fetch.spec.whatwg.org/#append-a-request-origin-header).
+The edge rejects null or mismatched origins; do not relax that check to fix a launch.
 
 `POST /api/v2/edge/exchange` requires `DC_WORKER_EDGE_KEY`, separate from app and
 model credentials. A code is one-use, bound to browser login, app, release,

@@ -159,6 +159,14 @@ def release_record(page, version):
     return page.locator('article.release-record').filter(has=page.get_by_text('v' + version, exact=True))
 
 
+def launch_ui(page, origin):
+    with page.expect_request(lambda r: r.url == origin + '/_dc/launch') as request:
+        page.get_by_role('button', name='Launch dashboard', exact=True).click()
+    assert request.value.method == 'POST'
+    assert request.value.headers.get('origin') == ORIGIN, 'Launch must preserve its exact gallery Origin'
+    assert request.value.headers.get('content-type', '').startswith('application/x-www-form-urlencoded')
+
+
 def approve_ui(page, version):
     open_app(page)
     record = release_record(page, version)
@@ -257,7 +265,7 @@ def run():
                 origin = deploy_ui(page, app, '1.0.0', tag, image, work, containers)
                 share(builder, app, [{'subject': 'user:viewer', 'permission': 'use'}])
                 open_app(pages['viewer'], release=False)
-                pages['viewer'].get_by_role('button', name='Launch dashboard', exact=True).click()
+                launch_ui(pages['viewer'], origin)
                 expect(pages['viewer'].get_by_role('heading', name='Build readiness', exact=True)).to_be_visible()
                 expect(pages['viewer'].get_by_text('DEMO-A101', exact=True)).to_be_visible()
                 pages['viewer'].screenshot(path=str(OUT / '02-dashboard-before.png'), full_page=True)
@@ -298,7 +306,7 @@ def run():
                 pages['viewer'].get_by_role('button', name='Refresh data', exact=True).click()
                 expect(pages['viewer'].get_by_role('alert')).to_be_visible()
                 open_app(pages['viewer'], release=False)
-                pages['viewer'].get_by_role('button', name='Launch dashboard', exact=True).click()
+                launch_ui(pages['viewer'], origin)
                 expect(pages['viewer'].get_by_role('heading', name='Mission readiness', exact=True)).to_be_visible()
                 expect(pages['viewer'].get_by_text('DEMO-A101', exact=True)).to_be_visible()
                 pages['viewer'].screenshot(path=str(OUT / '03-dashboard-after.png'), full_page=True)
@@ -322,6 +330,8 @@ def run():
             (OUT / 'summary.json').write_text(json.dumps(REPORT, indent=2))
             # Cleanup only resources created and tracked by this one test run.
             for name in containers:
+                with (OUT / (name + '.log')).open('w') as log:
+                    subprocess.run(['docker', 'logs', name], stdout=log, stderr=subprocess.STDOUT)
                 subprocess.run(['docker', 'rm', '-f', name], capture_output=True)
             for process in reversed(processes):
                 process.terminate()

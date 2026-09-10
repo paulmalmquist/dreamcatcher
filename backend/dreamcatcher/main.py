@@ -119,7 +119,9 @@ async def boundaries(request, call_next):
         request._body = b''.join(chunks)
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Referrer-Policy'] = 'same-origin'
+    # Cross-origin launch forms must preserve Origin for the edge's CSRF check.
+    # strict-origin discloses no path/query; same-origin would serialize Origin:null.
+    response.headers['Referrer-Policy'] = 'strict-origin'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     if request.url.path.startswith(('/api','/auth')):

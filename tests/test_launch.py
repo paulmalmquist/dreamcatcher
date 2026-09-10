@@ -25,6 +25,7 @@ def test_launch_is_one_use_app_bound_and_revocable(environment, monkeypatch):
     r = c.post(f'/api/v2/apps/{app}/launch')
     assert r.status_code == 200, r.text
     assert r.headers['cache-control'] == 'no-store'
+    assert c.get('/').headers['referrer-policy'] == 'strict-origin'
     ticket = r.json()
     assert '?' not in ticket['action']
     assert exchange(c, app, ticket['code'], origin='https://other.example.invalid').status_code == 401
