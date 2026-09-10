@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "real": [
+    "source upload",
+    "Docker build/run",
+    "Chromium",
+    "SDK HTTP",
+    "gateway authorization",
+    "independent review",
+    "edge handoff"
+  ],
+  "test_doubles": [
+    "BigQuery rows and security observations",
+    "scanner/package inventory reports",
+    "deployment admission checks",
+    "deterministic maintainer response"
+  ],
+  "steps": [
+    "Register Flight Deck and upload its source ZIP through the gallery UI",
+    "Build uploaded source 1.0.0 into a real container image",
+    "Run non-root container 1.0.0 and admit release with test-double deployment evidence",
+    "Launch as viewer; render authorized rows; deny Program B, outsider and forged identity",
+    "Build uploaded source 1.0.1 into a real container image",
+    "Maintainer context produces UI-only candidate; pending version cannot replace active release",
+    "Run non-root container 1.0.1 and admit release with test-double deployment evidence",
+    "Independently approve and deploy rebuilt UI; old release session is invalidated",
+    "Revoke sharing; existing tab loses query access and reload cannot fetch HTML"
+  ],
+  "test_base_image": "node@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5",
+  "images": [
+    {
+      "version": "1.0.0",
+      "local_image_id": "sha256:f1962eb97193fcbfb74a009c9bf9f690c505250198b7358d03cb7e771fc3983a",
+      "source_digest": "b62efd5126f044ccdd45b2dbbcc89f76aa2644beb9624760742e8fb662124667"
+    },
+    {
+      "version": "1.0.1",
+      "local_image_id": "sha256:daf6e569a52e5947a9415607328da82efc991c33f867488fa22452aa1593731b",
+      "source_digest": "5006d7b75cce3ec82bb537d64c3b6e957235ddd83da68af5728124e525a862d5"
+    }
+  ],
+  "uncaught_browser_errors": [],
+  "tested_commit": "d69ccb3f7d7f4c3006af3ebd9fef81bc78da11c7",
+  "verified_on": "2026-09-10",
+  "github_run": "https://github.com/paulmalmquist/dreamcatcher/actions/runs/34423443728",
+  "artifact_sha256": "77d9305db7c2d9246c4e3d9801de16af103a855325daf84dbfb4a0bcd3fbc6bf",
+  "other_checks": {
+    "backend": 76,
+    "sdk": 10,
+    "edge": 3
+  }
+}

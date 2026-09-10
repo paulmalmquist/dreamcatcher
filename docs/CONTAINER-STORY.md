@@ -6,6 +6,10 @@ SDK gateway authorization, immutable maintainer candidates and independent revie
 
 ## Reproduce
 
+Verified 2026-09-10: [passing CI run](https://github.com/paulmalmquist/dreamcatcher/actions/runs/34423443728).
+The [retained report](evidence/2026-09-10-container-story.json) records actual image
+and source identities. The separate backend, SDK and edge suites also passed.
+
 Use a disposable Linux machine/runner with Docker, Node 22, Python 3.12 and OpenSSL.
 Do NOT run the harness on an operational worker or a machine with company data.
 
@@ -95,6 +99,8 @@ do not share a bearer token across users or persist it in browser storage. Resta
 currently requires users to relaunch. Prefer per-app-scoped edge credentials over
 the reference's single privileged key. Preview remains separately scoped and is
 not launchable via a production ticket.
+Revocation blocks future requests; it cannot recall information someone has
+already viewed, copied or downloaded, or guarantee erasure from browser memory.
 
 `DC_APP_RUNTIME_PORT` optionally admits an exact nondefault HTTPS port; absent
 means 443. The same origin must be used by deployer, launch issuer and edge.
