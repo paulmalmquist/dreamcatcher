@@ -16,6 +16,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 import httpx
 from playwright.sync_api import sync_playwright, expect
@@ -47,11 +48,12 @@ def checked(r, expected=200):
     return r.json()
 
 
+@contextmanager
 def login_api(who):
-    c = httpx.Client(base_url=ORIGIN, timeout=40)
-    result = checked(c.post('/api/login', json={'email': who + '@demo.local', 'password': PASSWORD}))
-    c.headers['X-CSRF-Token'] = result['csrf']
-    return c
+    with httpx.Client(base_url=ORIGIN, timeout=40) as c:
+        result = checked(c.post('/api/login', json={'email': who + '@demo.local', 'password': PASSWORD}))
+        c.headers['X-CSRF-Token'] = result['csrf']
+        yield c
 
 
 def await_http(path):
