@@ -84,8 +84,10 @@ async def lifespan(app):
 app = FastAPI(title='Dreamcatcher API',version='2.0.0',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url='/api/openapi.json')
 from .platform_api import router as platform_router
 from .workers import router as worker_router
+from .launch import router as launch_router
 app.include_router(platform_router)
 app.include_router(worker_router)
+app.include_router(launch_router)
 app.add_middleware(SessionMiddleware,secret_key=os.getenv('DC_SESSION_SECRET') or secrets.token_hex(32),
                    session_cookie='dc_oidc_state',https_only=auth.PRODUCTION,same_site='lax',max_age=600)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=[x.strip() for x in os.getenv('DC_ALLOWED_HOSTS','localhost,127.0.0.1,testserver').split(',')])
@@ -171,6 +173,8 @@ def me(user: User):
 @app.post('/api/logout')
 def logout(user: User,response: Response):
     with connect() as db:
+        db.execute('DELETE FROM runtime_sessions WHERE hash IN (SELECT runtime_hash FROM edge_sessions WHERE parent_hash=?)', (user['session_hash'],))
+        db.execute('DELETE FROM sessions WHERE hash IN (SELECT runtime_hash FROM edge_sessions WHERE parent_hash=?)', (user['session_hash'],))
         db.execute('DELETE FROM sessions WHERE hash=?',(user['session_hash'],))
         event(db,user['id'],'auth.logout',user['id'])
     response.delete_cookie('dc_session',path='/')

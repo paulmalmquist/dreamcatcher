@@ -12,3 +12,5 @@ CREATE TABLE IF NOT EXISTS audit_outbox(id TEXT PRIMARY KEY, payload TEXT NOT NU
 CREATE TABLE IF NOT EXISTS data_products(source TEXT PRIMARY KEY, revision INTEGER NOT NULL, payload TEXT NOT NULL, digest TEXT NOT NULL, enabled INTEGER NOT NULL, updated REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS data_observations(source TEXT PRIMARY KEY REFERENCES data_products(source), product_digest TEXT NOT NULL, payload TEXT NOT NULL, observed REAL NOT NULL, expires REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS query_windows(user_id TEXT NOT NULL, window_start INTEGER NOT NULL, requests INTEGER NOT NULL, PRIMARY KEY(user_id,window_start));
+CREATE TABLE IF NOT EXISTS launch_tickets(hash TEXT PRIMARY KEY, parent_hash TEXT NOT NULL REFERENCES sessions(hash) ON DELETE CASCADE, user_id TEXT NOT NULL, app_id TEXT NOT NULL, submission_id TEXT NOT NULL, revision INTEGER NOT NULL, origin TEXT NOT NULL, expires REAL NOT NULL, consumed INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS edge_sessions(runtime_hash TEXT PRIMARY KEY REFERENCES sessions(hash) ON DELETE CASCADE, parent_hash TEXT NOT NULL REFERENCES sessions(hash) ON DELETE CASCADE);

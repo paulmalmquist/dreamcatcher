@@ -127,9 +127,12 @@ def report(kind: Kind, job_id: str, body: Report, request: Request):
                     raise HTTPException(409, 'Deployment admission changed while worker ran')
                 url = urlsplit(parsed.url)
                 suffix = os.getenv('DC_APP_RUNTIME_SUFFIX', '')
+                port = os.getenv('DC_APP_RUNTIME_PORT', '')
+                if port and (not port.isdigit() or not 1 <= int(port) <= 65535):
+                    raise HTTPException(503, 'Invalid runtime port')
                 expected_host = deployment['app_id'] + ('-preview' if deployment['environment'] == 'preview' else '') + '.' + suffix
                 checks = ('private_ingress', 'edge_auth', 'egress_policy', 'health', 'digest_verified', 'resources', 'no_workload_data_credentials')
-                if parsed.image != sub['image'] or not suffix or url.scheme != 'https' or url.hostname != expected_host or url.port or url.username or url.password or url.query or url.fragment or url.path not in ('', '/') or not all(parsed.checks.get(k) is True for k in checks):
+                if parsed.image != sub['image'] or not suffix or url.scheme != 'https' or url.hostname != expected_host or (url.port or 443) != int(port or 443) or url.username or url.password or url.query or url.fragment or url.path not in ('', '/') or not all(parsed.checks.get(k) is True for k in checks):
                     raise HTTPException(422, 'Private routing, image identity, or deployment checks failed')
                 db.execute("UPDATE deployments SET status='ready',url=?,detail=? WHERE id=?", (parsed.url, canonical(parsed.checks), deployment['id']))
                 if deployment['environment'] == 'production':

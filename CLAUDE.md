@@ -36,7 +36,8 @@ Read this file, `integrations/CONNECTIONS.json`, `docs/V2-PLATFORM.md`, and
 - The app maintainer has a stable identity and immutable upload context, not a
   continuously running privileged agent. Its output is an untrusted proposed UI
   patch. No IAM/SQL/secret/runtime edits or production writes through that capability.
-- The private edge is intentionally unconnected. Do not expose the container or
+- The company private edge is unconnected; `integrations/private-edge/server.mjs`
+  is now an executable single-process reference with one-use launch handoff. Do not expose the container or
   forward an identity header without validated authentication and gateway authorization.
   Preview routing/session isolation also needs real integration; queued is not deployed.
 - Small per-user app preferences belong in a separate state database, with FORCE RLS.
@@ -47,6 +48,11 @@ Read this file, `integrations/CONNECTIONS.json`, `docs/V2-PLATFORM.md`, and
   IAM merely to make a dashboard work. Ask for approval when new authority is needed.
 
 ## Concrete next patch
+
+Read `docs/CONTAINER-STORY.md`. The complete Flight Deck fixture and CI browser
+story distinguish real Docker/UI/gateway actions from synthetic warehouse,
+scanner, deployment and model evidence. Preserve that distinction. Replace the
+test doubles with real evidence at work; never promote the E2E harness into a worker.
 
 Create a company-only `work_connections.py` implementing `WorkAdapter`. Start with
 catalog observation and a single delegated query, then isolated build/private

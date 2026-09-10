@@ -47,6 +47,11 @@ def authenticate(request: Request):
             runtime = db.execute('SELECT * FROM runtime_sessions WHERE hash=?', (row['hash'],)).fetchone()
             if not runtime or runtime['expires'] < time.time():
                 raise HTTPException(401, 'Hosted runtime token expired or was revoked')
+            edge = db.execute('SELECT parent_hash FROM edge_sessions WHERE runtime_hash=?', (row['hash'],)).fetchone()
+            if edge:
+                parent = db.execute('SELECT expires FROM sessions WHERE hash=?', (edge['parent_hash'],)).fetchone()
+                if not parent or parent['expires'] < time.time():
+                    raise HTTPException(401, 'The originating login is no longer active')
     if not row or not row['enabled'] or row['expires'] < time.time():
         raise HTTPException(401, 'Session expired or revoked')
     if bearer != (row['scope'] in ('sdk', 'developer')):

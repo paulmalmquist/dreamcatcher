@@ -1,0 +1,2 @@
+# Test-only browser library; never part of a deployed app image.
+playwright==1.62.0

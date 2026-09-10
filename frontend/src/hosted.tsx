@@ -10,6 +10,23 @@ type Overview={revision:number;enabled:number;classification:string;submissions:
 type Proposal={id:string;status:string;proposal:{summary:string;changes:{path:string;content:string}[]}|null};
 type Agent={agent_id:string;submission_id:string;shared_skills:string[];changes:Proposal[]};
 
+export function LaunchApp({appId}:{appId:string}){
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ async function launch(){
+  setBusy(true);setError('');
+  try{
+   const ticket=await api<{action:string;code:string}>(`/v2/apps/${appId}/launch`,'POST');
+   const target=new URL(ticket.action);
+   if(target.protocol!=='https:'||target.username||target.password||target.pathname!=='/_dc/launch')throw Error('Invalid app launch destination');
+   // POST a one-use code, never a bearer token or a URL query parameter.
+   const form=document.createElement('form');form.method='POST';form.action=target.href;
+   const code=document.createElement('input');code.type='hidden';code.name='code';code.value=ticket.code;
+   form.appendChild(code);document.body.appendChild(form);form.submit();form.remove();
+  }catch(e){setError((e as Error).message)}finally{setBusy(false)}
+ }
+ return <div><Button className="primary-button" disabled={busy} onClick={()=>void launch()}>{busy?'Opening…':'Launch dashboard'}</Button>{error&&<p role="alert" className="form-error">{error}</p>}</div>;
+}
+
 export function HostedRegistration({onCreated}:{onCreated:()=>Promise<void>}){
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  return <form className="upload-form hosted-registration" onSubmit={async e=>{
@@ -51,7 +68,8 @@ export function HostedPanel({appId,user,onChange}:{appId:string;user:Identity;on
  <Button className="primary-button" disabled={busy||s.status!=='approved'||s.findings.length>0} onClick={()=>action(()=>api(`${base}/submissions/${s.id}/deploy`,'POST',{environment:'production'}))}>Promote</Button>
  {['admin','reviewer'].includes(user.role)&&<Button variant="outline" disabled={busy||s.status==='revoked'} onClick={()=>action(()=>api(`${base}/submissions/${s.id}/revoke`,'POST'))}>Revoke</Button>}
  </div></article>)}
- <h3>Deployments</h3>{data.deployments.length?data.deployments.map(d=><p key={d.id}>{d.environment} · {d.status}{d.url&&d.status==='ready'&&<> · <a href={d.url} target="_blank" rel="noopener noreferrer">Open authenticated app</a></>}</p>):<p className="muted">No deployment has been requested.</p>}
+ <h3>Deployments</h3>{data.deployments.length?data.deployments.map(d=><div key={d.id}><p>{d.environment} · {d.status}</p>{d.status==='ready'&&d.environment==='production'&&<LaunchApp appId={appId}/>}</div>):<p className="muted">No deployment has been requested.</p>}
+ <p className="muted">Launch opens the current approved production release. Preview routing requires a separately scoped preview edge; it never receives a production session.</p>
  <h3>Sharing capabilities</h3><p className="muted">discover, use, edit, deploy, share, and review are separate. App access never grants data access. Saving replaces the complete grant list.</p>
  <label>Grants (JSON)<Textarea className="json-editor" value={grants} onChange={e=>setGrants(e.target.value)}/></label><p className="muted">Example: {JSON.stringify({subject:'group:Manufacturing',permission:'use'})}</p>
  <Button variant="outline" disabled={busy} onClick={()=>action(()=>api(`${base}/grants`,'PUT',{expected_revision:data.revision,grants:JSON.parse(grants)}))}>Save capabilities</Button>
