@@ -16,7 +16,7 @@ function Dashboard(){
  return <main>
   <header><span className="brand">dreamcatcher <span>/ flight deck</span></span><span className="badge">SYNTHETIC LAB</span></header>
   <section className="heading"><div><p className="eyebrow">MANUFACTURING / GOVERNED ANALYTICS</p><h1>Build readiness</h1><p>Assembly readiness for the programs you can access.</p></div>
-   <div className="controls"><label>Program<select value={program} onChange={e=>setProgram(e.target.value)}><option value="program-a">Program A</option><option value="program-b">Program B</option></select></label><button onClick={()=>setRefresh(v=>v+1)}>Refresh data</button></div>
+   <div className="controls"><label>Program<select aria-label="Program" value={program} onChange={e=>setProgram(e.target.value)}><option value="program-a">Program A</option><option value="program-b">Program B</option></select></label><button onClick={()=>setRefresh(v=>v+1)}>Refresh data</button></div>
   </section>
   <div aria-live="polite">{busy?<p>Checking access and loading governed data…</p>:error?<p role="alert" className="error">{error}</p>:<>
    <section className="metrics"><article><span>Readiness</span><strong>{readiness===null?'—':readiness+'%'}</strong><p>Average across visible assemblies</p></article><article><span>Visible assemblies</span><strong>{rows.length}</strong><p>Only rows returned by the gateway</p></article><article><span>Data contract</span><strong className="contract">Assembly × program</strong><p>bq-build-readiness@1.0.0</p></article></section>
